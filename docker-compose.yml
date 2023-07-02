@@ -1,0 +1,21 @@
+version: 'latest'
+
+services:
+  web:
+    build: .
+    command: python /code/manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/code
+    ports:
+      - 8000:8000
+    depends_on:
+      - db
+    environment:
+      - "DJANGO_SECRET_KEY=${DOCKER_COMPOSE_DJANGO_SECRET_KEY}"
+      - "DJAGNO_DEBUG=${DOCKER_COMPOSE_DJANGO_DEBUG}"
+
+
+  db:
+    image: postgres:latest
+    environment:
+      - "POSTGRES_HOST_AUTH_METHOD=trust"
