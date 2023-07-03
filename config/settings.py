@@ -46,6 +46,9 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'phonenumber_field',
+
+    # app local
+    'ads',
 ]
 
 MIDDLEWARE = [
