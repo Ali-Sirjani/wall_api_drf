@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/4.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.0/ref/settings/
 """
-
+from datetime import timedelta
 from pathlib import Path
 from environ import Env
 
@@ -42,9 +42,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     # third party
-    'allauth',
-    'allauth.account',
-    'allauth.socialaccount',
     'phonenumber_field',
     'rest_framework',
     'rest_framework_simplejwt',
@@ -140,7 +137,7 @@ STATICFILES_DIRS = (str(BASE_DIR.joinpath('static')), )
 
 # Media files
 MEDIA_URL = '/media/'
-MEDIA_ROOT = (str(BASE_DIR.joinpath('media')), )
+MEDIA_ROOT = str(BASE_DIR.joinpath('media'))
 
 
 # Default primary key field type
@@ -148,20 +145,15 @@ MEDIA_ROOT = (str(BASE_DIR.joinpath('media')), )
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# config allauth
-AUTHENTICATION_BACKENDS = [
-    # Needed to log in by username in Django admin, regardless of `allauth`
-    'django.contrib.auth.backends.ModelBackend',
-
-    # `allauth` specific authentication methods, such as login by e-mail
-    'allauth.account.auth_backends.AuthenticationBackend',
-]
-
-SITE_ID = 1
-
 # config rest django
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     )
+}
+
+# config rest django jwt
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=40),
 }

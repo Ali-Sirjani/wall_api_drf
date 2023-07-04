@@ -2,4 +2,4 @@
 venv/
 db.sqlite3
 .idea/
-media/ad_covers/*png
+media/ad_covers/
