@@ -159,4 +159,11 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=40),
 }
 
+# CustomUser
 AUTH_USER_MODEL = 'accounts.CustomUser'
+LOGOUT_REDIRECT_URL = 'home'
+
+AUTHENTICATION_BACKENDS = [
+    'accounts.backends.UsernameOrPhoneModelBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
