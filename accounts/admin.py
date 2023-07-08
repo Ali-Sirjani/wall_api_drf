@@ -21,16 +21,17 @@ class CustomUserAdmin(UserAdmin):
 
         if not change:
             phone_number = form.cleaned_data['phone_number']
+            username = form.cleaned_data['username']
+
             if phone_number:
-                print('this phone: ', phone_number)
-                username = phone_number.as_e164
-                print('this username: ', type(username))
+                if not username:
+                    username = phone_number.as_e164
+
                 form.instance = self.model.objects.create_user(
                     phone=phone_number,
                     username=username,
                 )
             else:
-                username = form.cleaned_data['username']
                 password = form.cleaned_data['password1']
                 form.instance = self.model.objects.create_superuser(
                     username=username,
