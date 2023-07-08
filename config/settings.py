@@ -9,6 +9,8 @@ https://docs.djangoproject.com/en/4.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.0/ref/settings/
 """
+from django.contrib.messages import constants as messages
+
 from datetime import timedelta
 from pathlib import Path
 from environ import Env
@@ -45,6 +47,8 @@ INSTALLED_APPS = [
     'phonenumber_field',
     'rest_framework',
     'rest_framework_simplejwt',
+    'crispy_forms',
+    "crispy_bootstrap5",
 
     # app local
     'ads',
@@ -66,7 +70,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [str(BASE_DIR.joinpath('templates')), ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -167,3 +171,12 @@ AUTHENTICATION_BACKENDS = [
     'accounts.backends.UsernameOrPhoneModelBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
+
+# crispy form
+CRISPY_TEMPLATE_PACK = 'bootstrap5'
+
+# config messages
+MESSAGE_TAGS = {
+    messages.ERROR: 'danger',
+}
+
