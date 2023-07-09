@@ -4,8 +4,14 @@ from django.urls import reverse_lazy
 from django.shortcuts import redirect, render
 from django.contrib import messages
 
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken, TokenError
+
 from .models import CustomUser
 from .forms import CustomUserCreationForm, CustomAuthenticationForm, CodeVerifyForm
+from .serializers import UserSerializer, LoginSerializer, CodeVarifySerializer
 
 
 class SignUpView(generic.CreateView):
@@ -59,9 +65,13 @@ def check_code_view(request):
     pk = request.session.get('pk')
 
     if pk:
-        user = CustomUser.objects.get(pk=pk)
+        try:
+            user = CustomUser.objects.get(pk=pk)
+        except CustomUser.DoesNotExist:
+            messages.error(request, 'Something went wrong. Please try again!')
+            return redirect('accounts:login')
+
         code = user.codeverify.code
-        print('this is time: ', user.codeverify.expiration_timestamp)
         if not request.POST:
             print('this is code: ', code)
 
@@ -70,7 +80,6 @@ def check_code_view(request):
 
             if code == num:
                 if not user.codeverify.is_expired():
-                    user.codeverify.save()
                     login(request, user, backend='accounts.backends.UsernameOrPhoneModelBackend')
                     return redirect('home')
                 else:
@@ -89,3 +98,48 @@ def check_code_view(request):
 
 class LogoutView(auth_views.LogoutView):
     pass
+
+
+class LoginAPI(APIView):
+    def post(self, request):
+        ser = LoginSerializer(data=request.data)
+
+        if ser.is_valid():
+            phone_number = ser.validated_data.get('phone_number')
+
+            user = authenticate(request.data, phone_number=phone_number.as_e164)
+            if user:
+                user.codeverify.create_code()
+                print('this is code: ', user.codeverify.code)
+                return Response({'user_id': user.pk}, status=status.HTTP_200_OK)
+
+            ser._errors.update({'phone_number': 'there is no user with this phone number'})
+
+        return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CheckCodeAPI(APIView):
+    def post(self, request):
+        ser = CodeVarifySerializer(data=request.data)
+
+        if ser.is_valid():
+            user_id = ser.validated_data.get('user_id')
+            try:
+                user = CustomUser.objects.get(pk=user_id)
+            except CustomUser.DoesNotExist:
+                return Response({'user_id: ': 'user id is invalid'}, status=status.HTTP_400_BAD_REQUEST)
+
+            code = ser.validated_data.get('code')
+
+            if user.codeverify.code == code:
+                if not user.codeverify.is_expired():
+                    refresh = RefreshToken.for_user(user)
+                    access_token = str(refresh.access_token)
+                    refresh_token = str(refresh)
+                    return Response({'access_token': access_token, 'refresh_token': refresh_token},
+                                    status=status.HTTP_200_OK
+                                    )
+                else:
+                    return Response({'code: ': 'code has expired'}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response({'code: ': 'wrong code'}, status=status.HTTP_400_BAD_REQUEST)
