@@ -1,9 +1,11 @@
 import random
 
+from django.contrib import messages
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from django.conf import settings
 
 from phonenumber_field.modelfields import PhoneNumberField
 
@@ -33,6 +35,10 @@ class CodeVerify(models.Model):
     code = models.PositiveIntegerField(default=0, verbose_name=_('code'))
     expiration_timestamp = models.DateTimeField(null=True, blank=True, verbose_name=_('expiration timestamp'))
 
+    count_otp = models.PositiveIntegerField(blank=True, default=0, verbose_name=_('count otp'))
+    limit_time = models.DateTimeField(null=True, blank=True, verbose_name=_('limit time'))
+    # is_limit = models.BooleanField(blank=True, default=False, verbose_name=_('is limit'))
+
     def __str__(self):
         return self.user.username
 
@@ -55,3 +61,21 @@ class CodeVerify(models.Model):
 
     def is_expired(self):
         return self.expiration_timestamp < timezone.now()
+
+    def send_code(self, request=None):
+        if self.count_otp <= settings.MAX_OTP_TRY:
+            if settings.MAX_OTP_TRY - self.count_otp == 0:
+                self.limit_time = timezone.now() + timezone.timedelta(minutes=1)
+
+            self.count_otp += 1
+            self.save()
+            return True
+
+        if self.limit_time > timezone.now():
+            if request:
+                messages.info(request, 'Please after 10 minutes try Again')
+            return False
+
+        self.count_otp = 0
+        self.save()
+        return True

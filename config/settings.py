@@ -180,3 +180,5 @@ MESSAGE_TAGS = {
     messages.ERROR: 'danger',
 }
 
+# config otp
+MAX_OTP_TRY = 2
