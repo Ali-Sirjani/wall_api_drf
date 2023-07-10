@@ -1,5 +1,4 @@
 from django.contrib.auth import login, authenticate, views as auth_views
-from django.views import generic
 from django.urls import reverse_lazy
 from django.shortcuts import redirect, render
 from django.contrib import messages
@@ -10,20 +9,8 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 
 from .models import CustomUser
-from .forms import CustomUserCreationForm, CustomAuthenticationForm, CodeVerifyForm
-from .serializers import UserSerializer, LoginSerializer, CodeVarifySerializer
-
-
-class SignUpView(generic.CreateView):
-    form_class = CustomUserCreationForm
-    template_name = 'registration/signup.html'
-    success_url = reverse_lazy('accounts:login')
-
-    def dispatch(self, request, *args, **kwargs):
-        if request.user.is_authenticated:
-            return redirect('home')
-
-        return super().dispatch(request, *args, **kwargs)
+from .forms import CustomAuthenticationForm, CodeVerifyForm
+from .serializers import LoginSerializer, CodeVarifySerializer
 
 
 class LoginView(auth_views.LoginView):
@@ -42,14 +29,17 @@ class LoginView(auth_views.LoginView):
                 # login(self.request, user, backend='accounts.backends.UsernameOrPhoneModelBackend')
                 user = authenticate(self.request, phone_number=phone_number.as_e164)
                 if user is not None:
-                    self.request.session['pk'] = user.pk
-                    user.codeverify.create_code()
-                    return redirect(self.success_url)
+                    if user.codeverify.send_code():
+                        self.request.session['pk'] = user.pk
+                        user.codeverify.create_code()
+                        # send code
+                        print('this is code: ', user.codeverify.code)
+                        return redirect(self.success_url)
+
+                    form.add_error(None, 'Please after 10 minutes try Again')
 
             except CustomUser.DoesNotExist:
-                pass
-
-        form.add_error('phone_number', 'Invalid phone number.')
+                form.add_error('phone_number', 'Invalid phone number.')
 
         return self.form_invalid(form)
 
@@ -72,8 +62,11 @@ def check_code_view(request):
             return redirect('accounts:login')
 
         code = user.codeverify.code
-        if not request.POST:
-            print('this is code: ', code)
+        send_again = request.GET.get('send_again')
+        if send_again == 'True':
+            if user.codeverify.send_code(request):
+                # send code
+                print('this is code: ', user.codeverify.code)
 
         if form.is_valid():
             num = form.cleaned_data.get('code')
