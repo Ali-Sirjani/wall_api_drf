@@ -1,37 +1,37 @@
 from django.contrib.auth.backends import ModelBackend
+from django.contrib import messages
 
 from .models import CustomUser
 
 import phonenumbers
-from phonenumbers import is_valid_number, parse
 
 
-def validate_ir_phone_number(phone_number):
-    try:
-        if phone_number[0] == '0':
-            phone_number = phone_number[1::]
+def validate_ir_phone_number(phone_number, request):
+    if type(phone_number) == str:
         try:
-            parsed_number = parse(phone_number, "IR")
-            if is_valid_number(parsed_number):
-                return True
+            parsed_number = phonenumbers.parse(phone_number, "IR")
+            if phonenumbers.is_valid_number(parsed_number):
+                return phonenumbers.format_number(parsed_number, phonenumbers.PhoneNumberFormat.E164), True
             else:
-                return False
+                return None, False
         except phonenumbers.NumberParseException:
-            return False
-    except TypeError:
-        return False
+            return None, False
+
+    messages.error(request, 'Type Error')
+    return None, False
 
 
 class UsernameOrPhoneModelBackend(ModelBackend):
     def authenticate(self, request, **kwargs):
         phone_number = kwargs.get('phone_number')
-        if validate_ir_phone_number(phone_number):
-            kwargs = {'phone_number': phone_number}
+        number, validate = validate_ir_phone_number(phone_number, request)
+        if validate:
+            kwargs = {'phone_number': number}
             try:
                 user = CustomUser.objects.get(**kwargs)
                 return user
             except CustomUser.DoesNotExist:
-                return None
+                return CustomUser.objects.create_user(phone=phone_number)
 
         password = kwargs.get('password')
         kwargs = {'username': phone_number}
