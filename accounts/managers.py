@@ -11,6 +11,9 @@ class UserManager(BaseUserManager):
         if not username and not phone:
             raise ValueError("You must provide either a username or a phone number.")
 
+        if username is None:
+            username = str(phone)
+
         user = self.model(
             username=username,
             phone_number=phone,
