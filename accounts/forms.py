@@ -1,16 +1,9 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm, AuthenticationForm
-from django.utils.translation import gettext_lazy as _
 
 from phonenumber_field.formfields import PhoneNumberField
 
 from .models import CustomUser, CodeVerify
-
-
-class CustomUserCreationForm(forms.ModelForm):
-    class Meta:
-        model = CustomUser
-        fields = ('phone_number', )
 
 
 class CustomUserCreationAdminForm(UserCreationForm):
