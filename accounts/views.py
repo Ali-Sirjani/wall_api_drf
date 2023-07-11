@@ -1,6 +1,6 @@
 from django.contrib.auth import login, authenticate, views as auth_views
 from django.urls import reverse_lazy
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect, render, reverse
 from django.contrib import messages
 
 from rest_framework.response import Response
@@ -19,27 +19,24 @@ class LoginView(auth_views.LoginView):
     success_url = reverse_lazy('accounts:check_code')
 
     def form_valid(self, form):
-        # Authenticate the user with the provided credentials
         phone_number = form.cleaned_data.get('phone_number')
 
         if phone_number:
-            # Set the backend attribute on the user object
-            try:
-                # Log in the user
-                # login(self.request, user, backend='accounts.backends.UsernameOrPhoneModelBackend')
-                user = authenticate(self.request, phone_number=phone_number.as_e164)
-                if user is not None:
-                    if user.codeverify.send_code():
-                        self.request.session['pk'] = user.pk
-                        user.codeverify.create_code()
-                        # send code
-                        print('this is code: ', user.codeverify.code)
-                        return redirect(self.success_url)
+            user = authenticate(self.request, phone_number=phone_number.as_e164)
 
-                    form.add_error(None, 'Please after 10 minutes try Again')
+            if user is not None:
+                code_varify = user.codeverify  # Retrieves the code verification instance for the user.
+                if code_varify.send_code():
+                    self.request.session['pk'] = user.pk
 
-            except CustomUser.DoesNotExist:
-                form.add_error('phone_number', 'Invalid phone number.')
+                    if (code_varify.expiration_timestamp is None) or (code_varify.is_expired()):
+                        code_varify.create_code()  # Generates a new verification code.
+
+                    # send code
+                    print('this is code: ', code_varify.code)
+                    return redirect(self.success_url)
+
+                form.add_error(None, 'Please after 10 minutes try Again')
 
         return self.form_invalid(form)
 
@@ -51,9 +48,7 @@ class LoginView(auth_views.LoginView):
 
 
 def check_code_view(request):
-    form = CodeVerifyForm(request.POST or None)
     pk = request.session.get('pk')
-
     if pk:
         try:
             user = CustomUser.objects.get(pk=pk)
@@ -61,32 +56,50 @@ def check_code_view(request):
             messages.error(request, 'Something went wrong. Please try again!')
             return redirect('accounts:login')
 
-        code = user.codeverify.code
-        send_again = request.GET.get('send_again')
-        if send_again == 'True':
-            if user.codeverify.send_code(request):
-                # send code
-                print('this is code: ', user.codeverify.code)
+        referer = request.META.get('HTTP_REFERER')
+        allow_url = request.build_absolute_uri(reverse('accounts:login'))
 
-        if form.is_valid():
-            num = form.cleaned_data.get('code')
+        code_varify = user.codeverify
 
-            if code == num:
-                if not user.codeverify.is_expired():
-                    login(request, user, backend='accounts.backends.UsernameOrPhoneModelBackend')
-                    return redirect('home')
+        if referer == allow_url or code_varify.expiration_timestamp is not None:
+            form = CodeVerifyForm(request.POST or None)
+
+            code = code_varify.code
+            send_again = request.GET.get('send_again')
+            if send_again == 'True':
+                if code_varify.send_code(request):
+                    # send code
+                    print('this is code: ', code_varify.code)
+
+                return redirect('accounts:check_code')
+
+            if form.is_valid():
+                num = form.cleaned_data.get('code')
+
+                if code == num:
+                    if not code_varify.is_expired():
+                        if user.last_login is None:
+                            messages.success(request, 'Welcome to our site.')
+                        elif user.last_login_for_month():
+                            messages.success(request, 'Welcome back to our site')
+
+                        login(request, user, backend='accounts.backends.UsernameOrPhoneModelBackend')
+                        code_varify.expiration_timestamp = None
+                        code_varify.count_otp = 0
+                        code_varify.save()
+                        return redirect('home')
+                    else:
+                        messages.error(request, 'The code has timed out!')
                 else:
-                    messages.error(request, 'The code has timed out!')
-            else:
-                messages.error(request, 'The code is incorrect!')
+                    messages.error(request, 'The code is incorrect!')
 
-    else:
-        messages.error(request, 'The pk user is incorrect!')
-        return redirect('accounts:login')
+            context = {'form': form, 'code_varify': code_varify}
 
-    context = {'form': form, 'code_varify': user.codeverify}
+            return render(request, 'accounts/code_varify.html', context)
 
-    return render(request, 'accounts/code_varify.html', context)
+    messages.error(request, 'The information sent is incorrect, please try again!')
+
+    return redirect('accounts:login')
 
 
 class LogoutView(auth_views.LogoutView):
