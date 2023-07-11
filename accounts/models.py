@@ -29,6 +29,10 @@ class CustomUser(AbstractUser):
         else:
             return self.phone_number
 
+    def last_login_for_month(self):
+        result = timezone.timedelta(days=30) <= timezone.now() - self.last_login
+        return result
+
 
 class CodeVerify(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, verbose_name=_('user'))
@@ -63,6 +67,9 @@ class CodeVerify(models.Model):
         return self.expiration_timestamp < timezone.now()
 
     def send_code(self, request=None):
+        if (self.expiration_timestamp is not None) and (self.is_expired()):
+            self.create_code()
+
         if self.count_otp <= settings.MAX_OTP_TRY:
             if settings.MAX_OTP_TRY - self.count_otp == 0:
                 self.limit_time = timezone.now() + timezone.timedelta(minutes=1)
