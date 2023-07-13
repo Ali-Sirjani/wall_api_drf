@@ -28,7 +28,8 @@ class LoginSerializer(serializers.ModelSerializer):
 
 class CodeVarifySerializer(serializers.ModelSerializer):
     user_id = serializers.IntegerField()
+    send_again = serializers.BooleanField(required=False)
 
     class Meta:
         model = CodeVerify
-        fields = ('user_id', 'code')
+        fields = ('user_id', 'code', 'send_again')
