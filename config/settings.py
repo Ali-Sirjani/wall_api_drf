@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'crispy_forms',
     "crispy_bootstrap5",
+    'django_otp',
 
     # app local
     'ads',

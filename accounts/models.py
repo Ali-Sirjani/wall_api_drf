@@ -1,5 +1,3 @@
-import random
-
 from django.contrib import messages
 from django.db import models
 from django.contrib.auth.models import AbstractUser
@@ -7,7 +5,9 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
 
+from django_otp.oath import TOTP
 from phonenumber_field.modelfields import PhoneNumberField
+import secrets
 
 from .managers import UserManager
 
@@ -36,7 +36,7 @@ class CustomUser(AbstractUser):
 
 class CodeVerify(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, verbose_name=_('user'))
-    code = models.PositiveIntegerField(default=0, verbose_name=_('code'))
+    code = models.PositiveSmallIntegerField(default=0, verbose_name=_('code'))
     expiration_timestamp = models.DateTimeField(null=True, blank=True, verbose_name=_('expiration timestamp'))
 
     count_otp = models.PositiveIntegerField(blank=True, default=0, verbose_name=_('count otp'))
@@ -47,10 +47,10 @@ class CodeVerify(models.Model):
         return self.user.username
 
     def create_code(self):
-        num = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-        self.code = random.choice(num)
-        for _ in range(5):
-            self.code = (self.code * 10) + random.choice(num)
+        secret_key = secrets.token_hex(16)
+        secret_key_byte = secret_key.encode('utf-8')
+        totp_obj = TOTP(key=secret_key_byte, digits=7)
+        self.code = totp_obj.token()
 
         self.expiration_timestamp = timezone.now() + timezone.timedelta(minutes=2)
         self.save()
@@ -86,3 +86,13 @@ class CodeVerify(models.Model):
         self.count_otp = 0
         self.save()
         return True
+
+    def code_time_validity(self):
+        return (self.expiration_timestamp is None) or (self.is_expired())
+
+    def reset(self):
+        self.code = 0
+        self.expiration_timestamp = None
+        self.count_otp = 0
+        self.limit_time = None
+        self.save()
