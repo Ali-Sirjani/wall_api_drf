@@ -47,6 +47,14 @@ class CodeVerify(models.Model):
         return self.user.username
 
     def create_code(self):
+        """
+        Generates a new verification code and sets the expiration timestamp.
+
+        This method generates a new random verification code using the TOTP algorithm.
+        The code is stored in the 'code' attribute of the CodeVerify instance.
+        The expiration timestamp is set to the current time plus a duration of 2 minutes.
+        The updated CodeVerify instance is saved to the database.
+        """
         secret_key = secrets.token_hex(16)
         secret_key_byte = secret_key.encode('utf-8')
         totp_obj = TOTP(key=secret_key_byte, digits=7)
@@ -56,6 +64,9 @@ class CodeVerify(models.Model):
         self.save()
 
     def get_remaining_time_pass(self):
+        """
+        Calculates and returns the remaining time in minutes and seconds until the expiration of the verification code.
+        """
         time_pass = self.expiration_timestamp - timezone.now()
         if time_pass.seconds < timezone.timedelta(minutes=2).seconds:
             minutes, seconds = divmod(time_pass.seconds, 60)
@@ -64,9 +75,22 @@ class CodeVerify(models.Model):
         return f'{minutes}:{seconds:02}'
 
     def is_expired(self):
+        """
+        Checks if the verification code has expired.
+        """
         return self.expiration_timestamp < timezone.now()
 
     def send_code(self, request=None):
+        """
+        Sends the verification code if needed. Generates a new code if the current code has expired.
+
+        Args:
+            request: Optional request object. Used to display a message if code sending is limited.
+
+        Returns:
+            - True: If the code is sent successfully or the verification limit is not reached.
+            - False: If the verification limit is reached and code sending is restricted.
+        """
         if (self.expiration_timestamp is not None) and (self.is_expired()):
             self.create_code()
 
@@ -88,9 +112,15 @@ class CodeVerify(models.Model):
         return True
 
     def code_time_validity(self):
+        """
+        Checks the validity of the verification code's expiration timestamp.
+        """
         return (self.expiration_timestamp is None) or (self.is_expired())
 
     def reset(self):
+        """
+        Resets the code verification attributes to their initial values.
+        """
         self.code = 0
         self.expiration_timestamp = None
         self.count_otp = 0

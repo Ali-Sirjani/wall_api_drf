@@ -2,6 +2,7 @@ from django.contrib.auth import login, authenticate, views as auth_views
 from django.urls import reverse_lazy
 from django.shortcuts import redirect, render, reverse
 from django.contrib import messages
+from django.utils import timezone
 
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -29,7 +30,7 @@ class LoginView(auth_views.LoginView):
                 if code_varify.send_code():
                     self.request.session['pk'] = user.pk
 
-                    if (code_varify.expiration_timestamp is None) or (code_varify.is_expired()):
+                    if code_varify.code_time_validity():
                         code_varify.create_code()  # Generates a new verification code.
 
                     # send code
@@ -115,11 +116,14 @@ class LoginAPI(APIView):
 
             user = authenticate(request.data, phone_number=phone_number.as_e164)
             if user:
-                user.codeverify.create_code()
-                print('this is code: ', user.codeverify.code)
-                return Response({'user_id': user.pk}, status=status.HTTP_200_OK)
+                code_varify = user.codeverify
+                if code_varify.send_code():
+                    if code_varify.code_time_validity():
+                        code_varify.create_code()
+                    print('this is code: ', code_varify.code)
+                    return Response({'user_id': user.pk}, status=status.HTTP_200_OK)
 
-            ser._errors.update({'phone_number': 'there is no user with this phone number'})
+                ser._errors.update({'times': 'max otp try'})
 
         return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -135,17 +139,46 @@ class CheckCodeAPI(APIView):
             except CustomUser.DoesNotExist:
                 return Response({'user_id: ': 'user id is invalid'}, status=status.HTTP_400_BAD_REQUEST)
 
-            code = ser.validated_data.get('code')
+            code_varify = user.codeverify
+            if code_varify.expiration_timestamp is not None:
 
-            if user.codeverify.code == code:
-                if not user.codeverify.is_expired():
-                    refresh = RefreshToken.for_user(user)
-                    access_token = str(refresh.access_token)
-                    refresh_token = str(refresh)
-                    return Response({'access_token': access_token, 'refresh_token': refresh_token},
-                                    status=status.HTTP_200_OK
-                                    )
-                else:
+                send_again = ser.validated_data.get('send_again')
+                if send_again:
+                    if code_varify.send_code():
+                        # send code
+                        print('this is code: ', code_varify.code)
+
+                        return Response({'send again: ': 'Done'})
+
+                    else:
+                        return Response({'send again: ': 'Failed'})
+
+                code = ser.validated_data.get('code')
+
+                if code_varify.code == code:
+                    if not code_varify.is_expired():
+                        refresh = RefreshToken.for_user(user)
+                        access_token = str(refresh.access_token)
+                        refresh_token = str(refresh)
+
+                        data = {'access_token': access_token, 'refresh_token': refresh_token}
+
+                        if user.last_login is None:
+                            data['message'] = 'Welcome to our site.'
+                        elif user.last_login_for_month():
+                            data['message'] = 'Welcome back to our site'
+
+                        user.last_login = timezone.now()
+                        user.save()
+
+                        code_varify.reset()
+
+                        return Response(data, status=status.HTTP_200_OK)
+
                     return Response({'code: ': 'code has expired'}, status=status.HTTP_400_BAD_REQUEST)
-            else:
+
                 return Response({'code: ': 'wrong code'}, status=status.HTTP_400_BAD_REQUEST)
+
+            return Response({'authentication: ': 'user did not create a code.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
