@@ -10,4 +10,6 @@ class AdsAdmin(admin.ModelAdmin):
 
 @admin.register(Ad)
 class AdsAdmin(admin.ModelAdmin):
-    pass
+    fields = ('author', 'title', 'text', 'price', 'image', 'status_product',
+              'category', 'location', 'phone', 'active', 'slug', 'confirmation')
+    readonly_fields = ('author', )

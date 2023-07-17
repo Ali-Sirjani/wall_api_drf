@@ -19,6 +19,11 @@ class Category(models.Model):
         return self.name
 
 
+class ActiveAdsManger(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(confirmation=True, active=True)
+
+
 class Ad(models.Model):
     """
         Represents an advertisement.
@@ -51,10 +56,13 @@ class Ad(models.Model):
     active = models.BooleanField(default=True, verbose_name='active')
 
     # Indicates whether the ad has been confirmed by the staff of the site. Set by the staff.
-    confirmation = models.BooleanField(default=False, verbose_name='confirmation')
+    confirmation = models.BooleanField(default=False, verbose_name='confirmation', help_text='this is for admin')
 
     datetime_created = models.DateTimeField(auto_now_add=True, verbose_name='datetime created')
     datetime_modified = models.DateTimeField(auto_now=True, verbose_name='datetime modified')
+
+    objects = models.Manager()
+    active_objs = ActiveAdsManger()
 
     def __str__(self):
         return self.title
