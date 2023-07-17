@@ -7,11 +7,13 @@ from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
-from rest_framework_simplejwt.tokens import RefreshToken, TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.permissions import IsAuthenticated
 
 from .models import CustomUser
 from .forms import CustomAuthenticationForm, CodeVerifyForm
-from .serializers import LoginSerializer, CodeVarifySerializer
+from .serializers import LoginSerializer, CodeVarifySerializer, UserSerializer, UpdateUserSerializer
+from .permission import IsOwner
 
 
 class LoginView(auth_views.LoginView):
@@ -137,7 +139,7 @@ class CheckCodeAPI(APIView):
             try:
                 user = CustomUser.objects.get(pk=user_id)
             except CustomUser.DoesNotExist:
-                return Response({'user_id: ': 'user id is invalid'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'user_id': 'user id is invalid'}, status=status.HTTP_400_BAD_REQUEST)
 
             code_varify = user.codeverify
             if code_varify.expiration_timestamp is not None:
@@ -148,10 +150,10 @@ class CheckCodeAPI(APIView):
                         # send code
                         print('this is code: ', code_varify.code)
 
-                        return Response({'send again: ': 'Done'})
+                        return Response({'send again': 'Done'}, status=status.HTTP_200_OK)
 
                     else:
-                        return Response({'send again: ': 'Failed'})
+                        return Response({'times': 'max otp try'}, status=status.HTTP_400_BAD_REQUEST)
 
                 code = ser.validated_data.get('code')
 
@@ -175,10 +177,56 @@ class CheckCodeAPI(APIView):
 
                         return Response(data, status=status.HTTP_200_OK)
 
-                    return Response({'code: ': 'code has expired'}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({'code': 'code has expired'}, status=status.HTTP_400_BAD_REQUEST)
 
-                return Response({'code: ': 'wrong code'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'code': 'wrong code'}, status=status.HTTP_400_BAD_REQUEST)
 
-            return Response({'authentication: ': 'user did not create a code.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'authentication': 'user did not create a code.'}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserInfoAPI(APIView):
+    permission_classes = [IsAuthenticated, IsOwner]
+
+    def get(self, request):
+        pk = request.query_params.get('pk')
+
+        if pk:
+            try:
+                user = CustomUser.objects.get(pk=pk)
+            except CustomUser.DoesNotExist:
+                return Response({'message': f'There is no user with pk {pk}'}, status=status.HTTP_400_BAD_REQUEST)
+
+            self.check_object_permissions(request, user)
+
+            ser = UserSerializer(user)
+            return Response(ser.data, status=status.HTTP_200_OK)
+
+        return Response({'message': 'send pk'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class EditUserInfoAPI(APIView):
+    permission_classes = [IsAuthenticated, IsOwner]
+
+    def post(self, request):
+        pk = request.query_params.get('pk')
+
+        if pk:
+            try:
+                user = CustomUser.objects.get(pk=pk)
+            except CustomUser.DoesNotExist:
+                return Response({'message': f'There is no user with pk {pk}'}, status=status.HTTP_400_BAD_REQUEST)
+
+            self.check_object_permissions(request, user)
+
+            ser = UpdateUserSerializer(user, data=request.data, partial=True)
+
+            if ser.is_valid():
+                if not len(ser.validated_data):
+                    return Response({'message': 'You must enter at least one field'},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                ser.save()
+                return Response({'status': 'Done'}, status=status.HTTP_200_OK)
+
+            return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
