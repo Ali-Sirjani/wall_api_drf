@@ -10,12 +10,18 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ('username', 'phone_number')
+        exclude = ('id', 'password', 'is_superuser', 'is_staff', 'groups', 'user_permissions')
 
     def get_username(self, obj):
         if obj.phone_number == obj.username:
             return None
         return obj.username
+
+
+class UpdateUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ('username', 'email', 'first_name', 'last_name')
 
 
 class LoginSerializer(serializers.ModelSerializer):

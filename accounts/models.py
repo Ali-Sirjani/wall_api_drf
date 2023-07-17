@@ -15,6 +15,7 @@ from .managers import UserManager
 class CustomUser(AbstractUser):
     username = models.CharField(blank=True, max_length=100, unique=True, verbose_name=_('username'))
     phone_number = PhoneNumberField(unique=True, region='IR', null=True, verbose_name=_('phone number'))
+    email = models.EmailField(blank=True, null=True, unique=True)
 
     objects = UserManager()
 
@@ -36,7 +37,7 @@ class CustomUser(AbstractUser):
 
 class CodeVerify(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, verbose_name=_('user'))
-    code = models.PositiveSmallIntegerField(default=0, verbose_name=_('code'))
+    code = models.PositiveIntegerField(default=0, verbose_name=_('code'))
     expiration_timestamp = models.DateTimeField(null=True, blank=True, verbose_name=_('expiration timestamp'))
 
     count_otp = models.PositiveIntegerField(blank=True, default=0, verbose_name=_('count otp'))
