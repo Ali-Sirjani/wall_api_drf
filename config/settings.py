@@ -9,7 +9,9 @@ https://docs.djangoproject.com/en/4.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.0/ref/settings/
 """
+from django.contrib.messages import constants as messages
 
+from datetime import timedelta
 from pathlib import Path
 from environ import Env
 
@@ -42,10 +44,16 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     # third party
-    'allauth',
-    'allauth.account',
-    'allauth.socialaccount',
     'phonenumber_field',
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'crispy_forms',
+    "crispy_bootstrap5",
+    'django_otp',
+
+    # app local
+    'ads',
+    'accounts',
 ]
 
 MIDDLEWARE = [
@@ -63,7 +71,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [str(BASE_DIR.joinpath('templates')), ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -135,7 +143,7 @@ STATICFILES_DIRS = (str(BASE_DIR.joinpath('static')), )
 
 # Media files
 MEDIA_URL = '/media/'
-MEDIA_ROOT = (str(BASE_DIR.joinpath('media')), )
+MEDIA_ROOT = str(BASE_DIR.joinpath('media'))
 
 
 # Default primary key field type
@@ -143,13 +151,35 @@ MEDIA_ROOT = (str(BASE_DIR.joinpath('media')), )
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# config allauth
-AUTHENTICATION_BACKENDS = [
-    # Needed to log in by username in Django admin, regardless of `allauth`
-    'django.contrib.auth.backends.ModelBackend',
+# config rest django
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    )
+}
 
-    # `allauth` specific authentication methods, such as login by e-mail
-    'allauth.account.auth_backends.AuthenticationBackend',
+# config rest django jwt
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=40),
+}
+
+# CustomUser
+AUTH_USER_MODEL = 'accounts.CustomUser'
+LOGOUT_REDIRECT_URL = 'home'
+
+AUTHENTICATION_BACKENDS = [
+    'accounts.backends.UsernameOrPhoneModelBackend',
+    'django.contrib.auth.backends.ModelBackend',
 ]
 
-SITE_ID = 1
+# crispy form
+CRISPY_TEMPLATE_PACK = 'bootstrap5'
+
+# config messages
+MESSAGE_TAGS = {
+    messages.ERROR: 'danger',
+}
+
+# config otp
+MAX_OTP_TRY = 2
