@@ -55,3 +55,6 @@ class Ad(models.Model):
 
     datetime_created = models.DateTimeField(auto_now_add=True, verbose_name='datetime created')
     datetime_modified = models.DateTimeField(auto_now=True, verbose_name='datetime modified')
+
+    def __str__(self):
+        return self.title
