@@ -1,8 +1,10 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser
 
-from .serializers import AdListSerializer, AdDetailSerializer
+from .serializers import AdListSerializer, AdDetailSerializer, AdCreateSerializer
 from .models import Ad
 
 
@@ -29,3 +31,22 @@ class AdDetailAPI(APIView):
             return Response(ser.data, status=status.HTTP_200_OK)
 
         return Response({'message: ': 'Please send pk ad'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class AdCreateAPI(APIView):
+    permission_classes = (IsAuthenticated, )
+    serializer_class = AdCreateSerializer
+    parser_classes = (MultiPartParser, )
+
+    def post(self, request):
+        ser = AdCreateSerializer(data=request.data)
+
+        if ser.is_valid():
+            ser.validated_data['author'] = request.user
+            ser.save()
+            data = {
+                'status': 'Wait for confirmation',
+            }
+            return Response(data, status=status.HTTP_200_OK)
+
+        return Response(ser.errors, status.HTTP_400_BAD_REQUEST)
