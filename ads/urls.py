@@ -5,5 +5,6 @@ from . import views
 app_name = 'ads'
 
 urlpatterns = [
+    path('list/', views.AdsListAPI.as_view(), name='ads_list_api'),
+    path('<int:pk>/', views.AdDetailAPI.as_view(), name='ad_detail_api'),
 ]
-
