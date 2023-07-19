@@ -110,6 +110,8 @@ class LogoutView(auth_views.LogoutView):
 
 
 class LoginAPI(APIView):
+    serializer_class = LoginSerializer
+
     def post(self, request):
         ser = LoginSerializer(data=request.data)
 
@@ -131,6 +133,8 @@ class LoginAPI(APIView):
 
 
 class CheckCodeAPI(APIView):
+    serializer_class = CodeVarifySerializer
+
     def post(self, request):
         ser = CodeVarifySerializer(data=request.data)
 
@@ -188,6 +192,7 @@ class CheckCodeAPI(APIView):
 
 class UserInfoAPI(APIView):
     permission_classes = [IsAuthenticated, IsOwner]
+    serializer_class = UserSerializer
 
     def get(self, request):
         pk = request.query_params.get('pk')
@@ -208,6 +213,7 @@ class UserInfoAPI(APIView):
 
 class EditUserInfoAPI(APIView):
     permission_classes = [IsAuthenticated, IsOwner]
+    serializer_class = UpdateUserSerializer
 
     def post(self, request):
         pk = request.query_params.get('pk')
