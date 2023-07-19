@@ -11,5 +11,5 @@ class AdsAdmin(admin.ModelAdmin):
 @admin.register(Ad)
 class AdsAdmin(admin.ModelAdmin):
     fields = ('author', 'title', 'text', 'price', 'image', 'status_product',
-              'category', 'location', 'phone', 'active', 'slug', 'confirmation')
-    readonly_fields = ('author', )
+              'category', 'location', 'phone', 'active', 'slug', 'confirmation', 'datetime_modified')
+    readonly_fields = ('author', 'datetime_modified')
