@@ -11,13 +11,19 @@ class UserManager(BaseUserManager):
         if not username and not phone:
             raise ValueError("You must provide either a username or a phone number.")
 
+        flag = False
         if username is None:
             username = str(phone)
+            flag = True
 
         user = self.model(
             username=username,
             phone_number=phone,
         )
+
+        if flag:
+            if not username == user.phone_number.as_e164:
+                user.username = user.phone_number.as_e164
 
         user.set_unusable_password()
         user.save()
