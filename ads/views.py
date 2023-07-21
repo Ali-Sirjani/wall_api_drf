@@ -1,10 +1,13 @@
+from django.db.models import Q
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser
 
-from .serializers import AdListSerializer, AdDetailSerializer, AdCreateOrUpdateSerializer
+from .serializers import AdListSerializer, AdDetailSerializer, AdCreateOrUpdateSerializer,\
+    SearchSerializer
 from .models import Ad
 from .permissions import IsAdOwner
 
@@ -16,6 +19,22 @@ class AdsListAPI(APIView):
         ads_list = Ad.active_objs.all().order_by('-datetime_modified')
         ser = AdListSerializer(ads_list, many=True)
         return Response(ser.data, status=status.HTTP_200_OK)
+
+
+class SearchAdAPI(APIView):
+    serializer_class = SearchSerializer
+
+    def post(self, request):
+        ser_search = SearchSerializer(data=request.data)
+        if ser_search.is_valid():
+            q = ser_search.validated_data['q']
+            ads_list = Ad.active_objs.filter(Q(title__icontains=q) | Q(text__icontains=q) |
+                                             Q(category__name__icontains=q)).distinct('id')
+            ser = AdListSerializer(ads_list, many=True)
+
+            return Response(ser.data, status=status.HTTP_200_OK)
+
+        return Response(ser_search.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class AdDetailAPI(APIView):
@@ -55,7 +74,8 @@ class CreateAdAPI(APIView):
 
 class UpdateAdAPI(APIView):
     permission_classes = (IsAuthenticated, IsAdOwner)
-    serializer_classes = AdCreateOrUpdateSerializer
+    serializer_class = AdCreateOrUpdateSerializer
+
     def put(self, request, pk):
         if pk:
             try:

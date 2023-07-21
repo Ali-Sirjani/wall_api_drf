@@ -26,6 +26,10 @@ class AdListSerializer(serializers.ModelSerializer):
         return rep
 
 
+class SearchSerializer(serializers.Serializer):
+    q = serializers.CharField(required=True)
+
+
 class AdDetailSerializer(serializers.ModelSerializer):
     category = CategorySerializer(many=True, required=False, read_only=True)
     author = serializers.ReadOnlyField(source='author.username')
