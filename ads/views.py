@@ -7,8 +7,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser
 
 from .serializers import AdListSerializer, AdDetailSerializer, AdCreateOrUpdateSerializer,\
-    SearchSerializer
-from .models import Ad
+    SearchSerializer, CategorySerializer
+from .models import Ad, Category
 from .permissions import IsAdOwner
 
 
@@ -17,6 +17,27 @@ class AdsListAPI(APIView):
 
     def get(self, request):
         ads_list = Ad.active_objs.all().order_by('-datetime_modified')
+        ser = AdListSerializer(ads_list, many=True)
+        return Response(ser.data, status=status.HTTP_200_OK)
+
+
+class CategoryListAPI(APIView):
+    serializer_class = CategorySerializer
+
+    def get(self, request):
+        categories_list = Category.objects.all()
+        ser = CategorySerializer(categories_list, many=True)
+        return Response(ser.data, status=status.HTTP_200_OK)
+
+
+class AdsListWithCategoryAPI(APIView):
+    def post(self, request, pk):
+        try:
+            category = Category.objects.get(pk=pk)
+        except Category.DoesNotExist:
+            return Response({'message': f'There is no category with this pk({pk})'}, status.HTTP_400_BAD_REQUEST)
+
+        ads_list = Ad.active_objs.filter(category=category)
         ser = AdListSerializer(ads_list, many=True)
         return Response(ser.data, status=status.HTTP_200_OK)
 
