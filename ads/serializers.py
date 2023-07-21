@@ -77,14 +77,15 @@ def validate_categorise(categories_inputs, objs_list):
         objs_list.append(category)
 
 
-class AdCreateSerializer(serializers.ModelSerializer):
+class AdCreateOrUpdateSerializer(serializers.ModelSerializer):
     category = serializers.ListField(child=serializers.CharField(), required=False)
     status_product = serializers.CharField()
     phone = PhoneNumberField(region='IR')
 
     class Meta:
         model = Ad
-        exclude = ('id', 'author', 'sign', 'slug', 'confirmation', 'datetime_created', 'datetime_modified')
+        fields = ('title', 'text', 'image', 'status_product', 'price', 'phone',
+                  'location', 'category', 'active')
 
     def validate_status_product(self, value):
         if value in ['Need repair', 'need repair', '0']:
@@ -118,3 +119,24 @@ class AdCreateSerializer(serializers.ModelSerializer):
             ad.category.add(*categories_list)
 
         return ad
+
+    def update(self, instance, validated_data):
+        categories_list = []
+        try:
+            category_values = validated_data.pop('category')
+            validate_categorise(category_values, categories_list)
+        except KeyError:
+            pass
+
+        instance.category.clear()
+        if categories_list:
+            instance.category.add(*categories_list)
+
+        # Update specific fields with validated data.
+        instance.save(update_fields=validated_data)
+
+        # Set 'confirmation' to False for admin re-check.
+        instance.confirmation = False
+        instance.save()
+
+        return instance
