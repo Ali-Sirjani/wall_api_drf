@@ -8,7 +8,7 @@ from .models import Ad, Category
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
-        fields = ('name', )
+        fields = ('id', 'name', 'slug')
 
 
 class AdListSerializer(serializers.ModelSerializer):
@@ -41,6 +41,42 @@ class AdDetailSerializer(serializers.ModelSerializer):
         return rep
 
 
+def validate_categorise(categories_inputs, objs_list):
+    """
+    Validate and retrieve Category objects based on provided identifiers.
+
+    Parameters:
+        categories_inputs (list): List of category names or primary keys.
+        objs_list (list): List to store retrieved Category objects.
+
+    Raises:
+        serializers.ValidationError: If an identifier is not found or is invalid.
+
+    Notes:
+        - Assumes 'Category' is a Django model representing categories.
+        - Finds 'Category' by name or primary key.
+        - Raises validation error if not found or identifier is invalid.
+    """
+    for identifier in categories_inputs:
+        try:
+            # Attempt to get the Category object by name
+            try:
+                category = Category.objects.get(name=identifier)
+            except Category.DoesNotExist:
+                # If not found by name, try getting it by primary key (pk)
+                try:
+                    category = Category.objects.get(pk=identifier)
+                except Category.DoesNotExist:
+                    # If neither name nor pk match, raise a validation error
+                    raise serializers.ValidationError(
+                        {'error': f'There is no ad with this value ({identifier})'})
+        except ValueError:
+            # If the identifier is not a valid value (e.g., not string or integer), raise a validation error
+            raise serializers.ValidationError({'error': f'Invalid value({identifier}).'})
+
+        objs_list.append(category)
+
+
 class AdCreateSerializer(serializers.ModelSerializer):
     category = serializers.ListField(child=serializers.CharField(), required=False)
     status_product = serializers.CharField()
@@ -69,30 +105,16 @@ class AdCreateSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        category_list = []
+        categories_list = []
         try:
             category_values = validated_data.pop('category')
-            for identifier in category_values:
-                try:
-                    try:
-                        category = Category.objects.get(name=identifier)
-                    except Category.DoesNotExist:
-                        try:
-                            category = Category.objects.get(pk=identifier)
-                        except Category.DoesNotExist:
-                            raise serializers.ValidationError(
-                                {'error': f'There is no ad with this value ({identifier})'})
-                except ValueError:
-                    raise serializers.ValidationError({'error': f'Invalid value({identifier}).'})
-
-                category_list.append(category)
-
+            validate_categorise(category_values, categories_list)
         except KeyError:
             pass
 
         ad = Ad.objects.create(**validated_data)
 
-        if category_list:
-            ad.category.add(*category_list)
+        if categories_list:
+            ad.category.add(*categories_list)
 
         return ad
