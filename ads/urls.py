@@ -6,6 +6,7 @@ app_name = 'ads'
 
 urlpatterns = [
     path('list/', views.AdsListAPI.as_view(), name='ads_list_api'),
-    path('create/', views.AdCreateAPI.as_view(), name='ad_create_api'),
+    path('create/', views.CreateAdAPI.as_view(), name='create_ad_api'),
     path('<int:pk>/', views.AdDetailAPI.as_view(), name='ad_detail_api'),
+    path('update/<int:pk>/', views.UpdateAdAPI.as_view(), name='update_ad_api'),
 ]

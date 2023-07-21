@@ -4,8 +4,9 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser
 
-from .serializers import AdListSerializer, AdDetailSerializer, AdCreateSerializer
+from .serializers import AdListSerializer, AdDetailSerializer, AdCreateOrUpdateSerializer
 from .models import Ad
+from .permissions import IsAdOwner
 
 
 class AdsListAPI(APIView):
@@ -33,13 +34,13 @@ class AdDetailAPI(APIView):
         return Response({'message: ': 'Please send pk ad'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class AdCreateAPI(APIView):
+class CreateAdAPI(APIView):
     permission_classes = (IsAuthenticated, )
-    serializer_class = AdCreateSerializer
+    serializer_class = AdCreateOrUpdateSerializer
     parser_classes = (MultiPartParser, )
 
     def post(self, request):
-        ser = AdCreateSerializer(data=request.data)
+        ser = AdCreateOrUpdateSerializer(data=request.data)
 
         if ser.is_valid():
             ser.validated_data['author'] = request.user
@@ -50,3 +51,26 @@ class AdCreateAPI(APIView):
             return Response(data, status=status.HTTP_200_OK)
 
         return Response(ser.errors, status.HTTP_400_BAD_REQUEST)
+
+
+class UpdateAdAPI(APIView):
+    permission_classes = (IsAuthenticated, IsAdOwner)
+    serializer_classes = AdCreateOrUpdateSerializer
+    def put(self, request, pk):
+        if pk:
+            try:
+                ad = Ad.objects.get(pk=pk)
+            except Ad.DoesNotExist:
+                return Response({'message': f'There is no Ad with this pk({pk})'}, status=status.HTTP_400_BAD_REQUEST)
+
+            self.check_object_permissions(request, ad)
+
+            ser = AdCreateOrUpdateSerializer(ad, data=request.data, partial=True)
+
+            if ser.is_valid():
+                ser.save()
+                return Response({'status': 'updated', 'message': 'Wait for confirmation'}, status=status.HTTP_200_OK)
+
+            return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({'message': 'send pk in url'}, status=status.HTTP_400_BAD_REQUEST)
