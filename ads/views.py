@@ -115,3 +115,22 @@ class UpdateAdAPI(APIView):
             return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({'message': 'send pk in url'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DeleteAdAPI(APIView):
+    permission_classes = (IsAuthenticated, IsAdOwner)
+
+    def delete(self, request, pk):
+        if pk:
+            try:
+                ad = Ad.objects.get(pk=pk)
+            except Ad.DoesNotExist:
+                return Response({'message': f'There is no Ad with this pk({pk})'}, status=status.HTTP_400_BAD_REQUEST)
+
+            self.check_object_permissions(request, ad)
+
+            ad.delete()
+
+            return Response({'status': 'done'})
+
+        return Response({'message': 'send pk in url'}, status=status.HTTP_400_BAD_REQUEST)

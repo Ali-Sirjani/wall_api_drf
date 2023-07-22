@@ -12,4 +12,5 @@ urlpatterns = [
     path('create/', views.CreateAdAPI.as_view(), name='create_ad_api'),
     path('<int:pk>/', views.AdDetailAPI.as_view(), name='ad_detail_api'),
     path('update/<int:pk>/', views.UpdateAdAPI.as_view(), name='update_ad_api'),
+    path('delete/<int:pk>/', views.DeleteAdAPI.as_view(), name='delete_ad_api'),
 ]
