@@ -10,10 +10,25 @@ services:
       - 8000:8000
     depends_on:
       - db
+      - redis
     environment:
       - "DJANGO_SECRET_KEY=${DOCKER_COMPOSE_DJANGO_SECRET_KEY}"
       - "DJAGNO_DEBUG=${DOCKER_COMPOSE_DJANGO_DEBUG}"
 
+  celery-worker:
+    build: .
+    command: celery -A config worker -l info
+    volumes:
+      - .:/code
+    depends_on:
+      - redis
+    environment:
+      - "DJANGO_SECRET_KEY=${DOCKER_COMPOSE_DJANGO_SECRET_KEY}"
+      - "DJAGNO_DEBUG=${DOCKER_COMPOSE_DJANGO_DEBUG}"
+    restart: unless-stopped
+
+  redis:
+    image: "redis:latest"
 
   db:
     image: postgres:latest
