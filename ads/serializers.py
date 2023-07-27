@@ -20,11 +20,6 @@ class AdListSerializer(serializers.ModelSerializer):
         fields = ('id', 'author', 'title', 'image', 'status_product', 'price', 'location',
                   'category', 'slug', 'datetime_modified')
 
-    def to_representation(self, instance):
-        rep = super().to_representation(instance)
-        rep['status_product'] = instance.get_status_product_display()
-        return rep
-
 
 class SearchSerializer(serializers.Serializer):
     q = serializers.CharField(required=True)
@@ -38,11 +33,6 @@ class AdDetailSerializer(serializers.ModelSerializer):
         model = Ad
         fields = ('id', 'author', 'title', 'text', 'image', 'status_product', 'price',
                   'phone', 'location', 'category', 'sign', 'datetime_modified')
-
-    def to_representation(self, instance):
-        rep = super().to_representation(instance)
-        rep['status_product'] = instance.get_status_product_display()
-        return rep
 
 
 def validate_categorise(categories_inputs, objs_list):
@@ -92,22 +82,11 @@ class AdCreateOrUpdateSerializer(serializers.ModelSerializer):
                   'location', 'category', 'active')
 
     def validate_status_product(self, value):
-        if value in ['Need repair', 'need repair', '0']:
-            value = '0'
-
-        elif value in ['Worked', 'worked', '1']:
-            value = '1'
-
-        elif value in ['Like new', 'like new', '2']:
-            value = '2'
-
-        elif value in ['New', 'new', '3']:
-            value = '3'
-
+        value = value.lower()
+        if value in ['need repair', 'worked', 'like new', 'new']:
+            return value
         else:
             raise serializers.ValidationError('Invalid status product value.')
-
-        return value
 
     def create(self, validated_data):
         categories_list = []
