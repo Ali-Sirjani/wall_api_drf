@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from phonenumber_field.modelfields import PhoneNumberField
 
@@ -21,7 +22,8 @@ class Category(models.Model):
 
 class ActiveAdsManger(models.Manager):
     def get_queryset(self):
-        return super().get_queryset().filter(confirmation=True, active=True)
+        return super().get_queryset().filter(confirmation=True, active=True,
+                                             expiration_date__gt=timezone.now(), is_delete=False)
 
 
 class Ad(models.Model):
@@ -38,6 +40,13 @@ class Ad(models.Model):
         ('worked', 'Worked'),
         ('like new', 'Like new'),
         ('new', 'New'),
+    )
+
+    DELETE_WITH_CHOICES = (
+        ('user', 'User'),
+        ('staff', 'Staff'),
+        ('expired', 'Expired'),
+        ('other', 'Other'),
     )
 
     author = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='ads', verbose_name='author')
@@ -62,8 +71,27 @@ class Ad(models.Model):
     datetime_created = models.DateTimeField(auto_now_add=True, verbose_name='datetime created')
     datetime_modified = models.DateTimeField(auto_now=True, verbose_name='datetime modified')
 
+    # soft-delete fields
+    expiration_date = models.DateTimeField(null=True, verbose_name='expiration date')
+    is_delete = models.BooleanField(default=False, verbose_name='is delete')
+    delete_with = models.CharField(choices=DELETE_WITH_CHOICES, max_length=15, null=True, blank=True,
+                                   verbose_name='delete with')
+    datetime_deleted = models.DateTimeField(null=True, blank=True, verbose_name='datetime deleted')
+
     objects = models.Manager()
     active_objs = ActiveAdsManger()
 
     def __str__(self):
         return self.title
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            self.expiration_date = timezone.now() + timezone.timedelta(minutes=10)
+
+        super().save(*args, **kwargs)
+
+    def soft_delete(self, reason):
+        self.datetime_deleted = timezone.now()
+        self.delete_with = reason
+        self.is_delete = True
+        self.save()
