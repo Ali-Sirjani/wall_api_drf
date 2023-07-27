@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.core.validators import MaxValueValidator, MinValueValidator
 
 from phonenumber_field.modelfields import PhoneNumberField
 
@@ -55,7 +56,8 @@ class Ad(models.Model):
     sign = models.ManyToManyField(get_user_model(), related_name='signs', default=None, blank=True, verbose_name='sign')
     title = models.CharField(max_length=200, verbose_name='title')
     text = models.TextField(verbose_name='text')
-    price = models.CharField(max_length=100, verbose_name='price')
+    price = models.PositiveBigIntegerField(verbose_name='price', validators=(MinValueValidator(10_000),
+                                                                             MaxValueValidator(99_999_999_999)))
     image = models.ImageField(upload_to='ad_covers/', verbose_name='image')
     status_product = models.CharField(max_length=30, choices=STATUS_CHOICES, verbose_name='status product')
     location = models.TextField(verbose_name='location')

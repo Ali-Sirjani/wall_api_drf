@@ -63,10 +63,10 @@ def validate_categorise(categories_inputs, objs_list):
                 except Category.DoesNotExist:
                     # If neither name nor pk match, raise a validation error
                     raise serializers.ValidationError(
-                        {'error': f'There is no ad with this value ({identifier})'})
+                        {'category': f'There is no ad with this value ({identifier})'})
         except ValueError:
             # If the identifier is not a valid value (e.g., not string or integer), raise a validation error
-            raise serializers.ValidationError({'error': f'Invalid value({identifier}).'})
+            raise serializers.ValidationError({'category': f'Invalid value({identifier}).'})
 
         objs_list.append(category)
 
