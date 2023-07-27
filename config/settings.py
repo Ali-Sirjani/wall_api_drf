@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'django_otp',
     'drf_spectacular',
     'celery',
+    'django_celery_beat',
 
     # app local
     'ads',
