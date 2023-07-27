@@ -100,7 +100,7 @@ class UpdateAdAPI(APIView):
     def put(self, request, pk):
         if pk:
             try:
-                ad = Ad.objects.get(pk=pk)
+                ad = Ad.objects.get(pk=pk, is_delete=False)
             except Ad.DoesNotExist:
                 return Response({'message': f'There is no Ad with this pk({pk})'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -123,13 +123,13 @@ class DeleteAdAPI(APIView):
     def delete(self, request, pk):
         if pk:
             try:
-                ad = Ad.objects.get(pk=pk)
+                ad = Ad.objects.get(pk=pk, is_delete=False)
             except Ad.DoesNotExist:
                 return Response({'message': f'There is no Ad with this pk({pk})'}, status=status.HTTP_400_BAD_REQUEST)
 
             self.check_object_permissions(request, ad)
 
-            ad.delete()
+            ad.soft_delete('user')
 
             return Response({'status': 'done'})
 
