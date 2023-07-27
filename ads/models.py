@@ -33,12 +33,13 @@ class Ad(models.Model):
         and status. Ads can be associated with multiple categories and can be signed by multiple users.
     """
 
-    STATUS_CHOICE = (
-        ('0', 'Need repair'),
-        ('1', 'Worked'),
-        ('2', 'Like new'),
-        ('3', 'New'),
+    STATUS_CHOICES = (
+        ('need repair', 'Need repair'),
+        ('worked', 'Worked'),
+        ('like new', 'Like new'),
+        ('new', 'New'),
     )
+
     author = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='ads', verbose_name='author')
     category = models.ManyToManyField(Category, related_name='categories', default=None, blank=True,
                                       verbose_name='category')
@@ -47,7 +48,7 @@ class Ad(models.Model):
     text = models.TextField(verbose_name='text')
     price = models.CharField(max_length=100, verbose_name='price')
     image = models.ImageField(upload_to='ad_covers/', verbose_name='image')
-    status_product = models.CharField(max_length=10, choices=STATUS_CHOICE, verbose_name='status product')
+    status_product = models.CharField(max_length=30, choices=STATUS_CHOICES, verbose_name='status product')
     location = models.TextField(verbose_name='location')
     phone = PhoneNumberField(region='IR', verbose_name='phone')
     slug = models.SlugField(allow_unicode=True, blank=True, verbose_name='slug')
