@@ -134,3 +134,31 @@ class DeleteAdAPI(APIView):
             return Response({'status': 'done'})
 
         return Response({'message': 'send pk in url'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SignAdAPI(APIView):
+    permission_classes = (IsAuthenticated, )
+
+    def get(self, request, pk):
+        try:
+            ad = Ad.active_objs.get(pk=pk)
+        except Ad.DoesNotExist:
+            return Response({'message': f'There is no Ad with this pk({pk})'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+
+        if ad.sign.filter(pk=user.pk).exists():
+            ad.sign.remove(user)
+            return Response({'status': 'remove'})
+
+        ad.sign.add(user)
+        return Response({'status': 'add'})
+
+
+class UserSignAdsListAPI(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        ads = Ad.active_objs.filter(sign=request.user.pk)
+        ser = AdListSerializer(ads, many=True)
+        return Response(ser.data, status=status.HTTP_200_OK)

@@ -13,4 +13,6 @@ urlpatterns = [
     path('<int:pk>/', views.AdDetailAPI.as_view(), name='ad_detail_api'),
     path('update/<int:pk>/', views.UpdateAdAPI.as_view(), name='update_ad_api'),
     path('delete/<int:pk>/', views.DeleteAdAPI.as_view(), name='delete_ad_api'),
+    path('sign/<int:pk>/', views.SignAdAPI.as_view(), name='sign_ad_api'),
+    path('sign/list/', views.UserSignAdsListAPI.as_view(), name='user_sign_ads_list_api'),
 ]
