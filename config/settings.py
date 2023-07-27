@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 from django.contrib.messages import constants as messages
 
+from celery.schedules import crontab
+
 from datetime import timedelta
 from pathlib import Path
 from environ import Env
@@ -198,3 +200,10 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_DEFAULT_QUEUE = 'default'
+
+CELERY_BEAT_SCHEDULE = {
+    'remove_ads_expired': {
+        'task': 'ads.tasks.check_expiration_date_every_day',
+        'schedule': crontab(minute='0', hour='0'),
+    }
+}
