@@ -23,7 +23,7 @@ class Category(models.Model):
 
 class ActiveAdsManger(models.Manager):
     def get_queryset(self):
-        return super().get_queryset().filter(confirmation=True, active=True,
+        return super().get_queryset().filter(confirmation=True, active=True, is_block=False,
                                              expiration_date__gt=timezone.now(), is_delete=False)
 
 
@@ -73,6 +73,9 @@ class Ad(models.Model):
     datetime_created = models.DateTimeField(auto_now_add=True, verbose_name='datetime created')
     datetime_modified = models.DateTimeField(auto_now=True, verbose_name='datetime modified')
 
+    # block field
+    is_block = models.BooleanField(default=False, blank=True, verbose_name='is block')
+
     # soft-delete fields
     expiration_date = models.DateTimeField(null=True, verbose_name='expiration date')
     is_delete = models.BooleanField(default=False, verbose_name='is delete')
@@ -97,3 +100,13 @@ class Ad(models.Model):
         self.delete_with = reason
         self.is_delete = True
         self.save()
+
+
+class AdReport(models.Model):
+    ad = models.ForeignKey(Ad, on_delete=models.CASCADE, related_name='reports')
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='reported_ads')
+    report_reason = models.TextField()
+    datetime_reported = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['ad', 'user']
