@@ -1,4 +1,5 @@
 from django.db.models import Q
+from django.db.utils import IntegrityError
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -7,7 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser
 
 from .serializers import AdListSerializer, AdDetailSerializer, AdCreateOrUpdateSerializer,\
-    SearchSerializer, CategorySerializer
+    SearchSerializer, CategorySerializer, AdReportSerializer
 from .models import Ad, Category
 from .permissions import IsAdOwner
 
@@ -72,6 +73,29 @@ class AdDetailAPI(APIView):
             return Response(ser.data, status=status.HTTP_200_OK)
 
         return Response({'message: ': 'Please send pk ad'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ReportAdAPI(APIView):
+    permission_classes = (IsAuthenticated, )
+
+    def post(self, request, pk):
+        try:
+            ad = Ad.active_objs.get(pk=pk, is_delete=False)
+        except Ad.DoesNotExist:
+            return Response({'message': f'There is no Ad with this pk({pk})'}, status=status.HTTP_400_BAD_REQUEST)
+
+        ser = AdReportSerializer(data=request.data)
+
+        if ser.is_valid():
+            ser.validated_data['ad'] = ad
+            ser.validated_data['user'] = request.user
+            try:
+                ser.save()
+                return Response({'message': 'Ad reported successfully.'}, status=status.HTTP_201_CREATED)
+            except IntegrityError:
+                return Response({'message': 'You have already reported this ad.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CreateAdAPI(APIView):
