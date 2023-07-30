@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from phonenumber_field.serializerfields import PhoneNumberField
 
-from .models import Ad, Category
+from .models import Ad, Category, AdReport
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -33,6 +33,15 @@ class AdDetailSerializer(serializers.ModelSerializer):
         model = Ad
         fields = ('id', 'author', 'title', 'text', 'image', 'status_product', 'price',
                   'phone', 'location', 'category', 'sign', 'datetime_modified')
+
+
+class AdReportSerializer(serializers.ModelSerializer):
+    user = serializers.ReadOnlyField(source='author.username')
+    ad = serializers.ReadOnlyField()
+
+    class Meta:
+        model = AdReport
+        fields = ('user', 'ad', 'report_reason')
 
 
 def validate_categorise(categories_inputs, objs_list):
