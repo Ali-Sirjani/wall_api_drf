@@ -65,16 +65,13 @@ class AdDetailAPI(APIView):
     serializer_class = AdDetailSerializer
 
     def get(self, request, pk):
-        if pk:
-            try:
-                ad = Ad.active_objs.get(pk=pk)
-            except Ad.DoesNotExist:
-                return Response({'message: ': f'There is no ad with this pk {pk}'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            ad = Ad.active_objs.get(pk=pk)
+        except Ad.DoesNotExist:
+            return Response({'message: ': f'There is no ad with this pk {pk}'}, status=status.HTTP_400_BAD_REQUEST)
 
-            ser = AdDetailSerializer(ad)
-            return Response(ser.data, status=status.HTTP_200_OK)
-
-        return Response({'message: ': 'Please send pk ad'}, status=status.HTTP_400_BAD_REQUEST)
+        ser = AdDetailSerializer(ad)
+        return Response(ser.data, status=status.HTTP_200_OK)
 
 
 class ReportAdAPI(APIView):
@@ -137,42 +134,47 @@ class UpdateAdAPI(APIView):
     serializer_class = AdCreateOrUpdateSerializer
 
     def put(self, request, pk):
-        if pk:
-            try:
-                ad = Ad.objects.get(pk=pk, is_delete=False)
-            except Ad.DoesNotExist:
-                return Response({'message': f'There is no Ad with this pk({pk})'}, status=status.HTTP_400_BAD_REQUEST)
+        if request.query_params.get('cancel'):
+            return cancel_create(request)
 
-            self.check_object_permissions(request, ad)
+        try:
+            ad = Ad.objects.get(pk=pk, is_delete=False)
+        except Ad.DoesNotExist:
+            return Response({'message': f'There is no Ad with this pk({pk})'}, status=status.HTTP_400_BAD_REQUEST)
 
-            ser = AdCreateOrUpdateSerializer(ad, data=request.data, partial=True)
+        self.check_object_permissions(request, ad)
 
-            if ser.is_valid():
-                ser.save()
-                return Response({'status': 'updated', 'message': 'Wait for confirmation'}, status=status.HTTP_200_OK)
+        ser = AdCreateOrUpdateSerializer(ad, data=request.data, partial=True)
 
-            return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
+        if ser.is_valid():
+            user_phone_e164 = request.user.phone_number.as_e164
+            phone_validate = ser.validated_data['phone']
+            if not (phone_validate == user_phone_e164) and not (phone_validate == ad.phone):
+                result = phone_number_verification(request)
 
-        return Response({'message': 'send pk in url'}, status=status.HTTP_400_BAD_REQUEST)
+                if result is not True:
+                    return result
+
+            ser.save()
+            return Response({'status': 'updated', 'message': 'Wait for confirmation'}, status=status.HTTP_200_OK)
+
+        return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class DeleteAdAPI(APIView):
     permission_classes = (IsAuthenticated, IsAdOwner)
 
     def delete(self, request, pk):
-        if pk:
-            try:
-                ad = Ad.objects.get(pk=pk, is_delete=False)
-            except Ad.DoesNotExist:
-                return Response({'message': f'There is no Ad with this pk({pk})'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            ad = Ad.objects.get(pk=pk, is_delete=False)
+        except Ad.DoesNotExist:
+            return Response({'message': f'There is no Ad with this pk({pk})'}, status=status.HTTP_400_BAD_REQUEST)
 
-            self.check_object_permissions(request, ad)
+        self.check_object_permissions(request, ad)
 
-            ad.soft_delete('user')
+        ad.soft_delete('user')
 
-            return Response({'status': 'done'})
-
-        return Response({'message': 'send pk in url'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'status': 'done'})
 
 
 class SignAdAPI(APIView):
