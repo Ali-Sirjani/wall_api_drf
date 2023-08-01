@@ -1,5 +1,6 @@
 from django.db.models import Q
 from django.db.utils import IntegrityError
+from django.utils import timezone
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -11,6 +12,7 @@ from .serializers import AdListSerializer, AdDetailSerializer, AdCreateOrUpdateS
     SearchSerializer, CategorySerializer, AdReportSerializer
 from .models import Ad, Category
 from .permissions import IsAdOwner
+from .utils import phone_number_verification, cancel_create
 
 
 class AdsListAPI(APIView):
@@ -104,17 +106,30 @@ class CreateAdAPI(APIView):
     parser_classes = (MultiPartParser, )
 
     def post(self, request):
-        ser = AdCreateOrUpdateSerializer(data=request.data)
+        if request.user.has_free_ad_quota():
+            if request.query_params.get('cancel'):
+                return cancel_create(request)
 
-        if ser.is_valid():
-            ser.validated_data['author'] = request.user
-            ser.save()
-            data = {
-                'status': 'Wait for confirmation',
-            }
-            return Response(data, status=status.HTTP_200_OK)
+            ser = AdCreateOrUpdateSerializer(data=request.data)
 
-        return Response(ser.errors, status.HTTP_400_BAD_REQUEST)
+            if ser.is_valid():
+                user_phone_e164 = request.user.phone_number.as_e164
+                if not ser.validated_data['phone'] == user_phone_e164:
+                    result = phone_number_verification(request)
+
+                    if result is not True:
+                        return result
+
+                ser.validated_data['author'] = request.user
+                ser.save()
+                data = {
+                    'status': 'Wait for confirmation',
+                }
+                return Response(data, status=status.HTTP_200_OK)
+
+            return Response(ser.errors, status.HTTP_400_BAD_REQUEST)
+
+        return Response({'message': 'You have reached your ad creation limit.'})
 
 
 class UpdateAdAPI(APIView):
