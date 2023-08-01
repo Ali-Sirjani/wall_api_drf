@@ -192,6 +192,9 @@ MESSAGE_TAGS = {
 # config otp
 MAX_OTP_TRY = 2
 
+# limit create ads
+FREE_ADS_MONTHLY_QUOTA = 3
+
 # config celery
 CELERY_BROKER_URL = 'redis://redis:6379/0'
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL

@@ -125,7 +125,10 @@ class AdCreateOrUpdateSerializer(serializers.ModelSerializer):
             instance.category.add(*categories_list)
 
         # Update specific fields with validated data.
-        instance.save(update_fields=validated_data)
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+
+        instance.save()
 
         # Set 'confirmation' to False for admin re-check.
         instance.confirmation = False

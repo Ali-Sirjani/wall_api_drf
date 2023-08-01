@@ -1,5 +1,5 @@
-from django.contrib import messages
 from django.db import models
+from django.contrib import messages
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -10,6 +10,7 @@ from phonenumber_field.modelfields import PhoneNumberField
 import secrets
 
 from .managers import UserManager
+import ads
 
 
 class CustomUser(AbstractUser):
@@ -33,6 +34,17 @@ class CustomUser(AbstractUser):
     def last_login_for_month(self):
         result = timezone.timedelta(days=30) <= timezone.now() - self.last_login
         return result
+
+    def has_free_ad_quota(self):
+        # Get the current date
+        current_date = timezone.now()
+        # Calculate the date 30 days ago
+        thirty_days_ago = current_date - timezone.timedelta(days=30)
+
+        # Count the user's ads created within the last 30 days
+        ads_within_last_30_days = ads.models.Ad.objects.filter(author=self, datetime_created__gte=thirty_days_ago).count()
+
+        return ads_within_last_30_days < settings.FREE_ADS_MONTHLY_QUOTA
 
 
 class CodeVerify(models.Model):
