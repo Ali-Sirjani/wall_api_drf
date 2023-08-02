@@ -7,7 +7,7 @@ from django.utils.functional import SimpleLazyObject
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import CustomUser, CodeVerify
+from .models import CustomUser
 
 
 class TestLogin(TestCase):
@@ -21,7 +21,7 @@ class TestLogin(TestCase):
     def test_info_user(self):
         # user1 with phone_number
         self.assertEqual(self.user1.phone_number.as_e164, '+989323744991')
-        self.assertEqual(self.user1.username, '09323744991')
+        self.assertEqual(self.user1.username, '+989323744991')
         self.assertFalse(self.user1.has_usable_password(), False)
         # user2 with phone_number and username
         self.assertEqual(self.user2.username, 'ALI')
@@ -40,7 +40,7 @@ class TestLogin(TestCase):
             pass
 
     def test_unique_user_username(self):
-        self.user2.username = '09323744991'
+        self.user2.username = '+989323744991'
         try:
             self.user2.save()
             self.fail('username is not unique!')
@@ -234,7 +234,7 @@ class TestLoginAPI(TestCase):
         self.assertEqual(response.data.get('message'), 'You must enter at least one field')
 
         # try edit user1 info with token user1, with data
-        self.assertEqual(self.user1.username, '09315479800')
+        self.assertEqual(self.user1.username, '+989315479800')
         response = self.client.post(reverse('accounts:profile_edit_api') + f'?pk={self.user1.pk}', {'username': 'test'},
                                     HTTP_AUTHORIZATION=f'Bearer {access_token_user1}')
         self.user1.refresh_from_db()
