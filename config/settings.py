@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     # app local
     'ads',
     'accounts',
+    'payment',
 ]
 
 MIDDLEWARE = [
