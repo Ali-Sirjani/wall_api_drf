@@ -41,7 +41,7 @@ class PackageAdToken(models.Model):
                                     null=True, verbose_name=_('undelete by'))
 
     datetime_created = models.DateTimeField(auto_now_add=True, null=True, verbose_name=_('datetime created'))
-    datetime_modified = models.DateTimeField(null=True, verbose_name=_('datetime modified'))
+    datetime_modified = models.DateTimeField(auto_now=True, null=True, verbose_name=_('datetime modified'))
 
     confirmation = models.BooleanField(default=False, verbose_name=_('confirmation'), help_text='this is for admin')
 
