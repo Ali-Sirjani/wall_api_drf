@@ -115,8 +115,29 @@ class Order(models.Model):
     transaction = models.PositiveBigIntegerField(default=generate_short_uuid, unique=True, editable=False,
                                                  verbose_name=_('transaction'))
 
+    created_by = models.ForeignKey(get_user_model(), on_delete=models.SET_NULL, related_name='orders_created',
+                                   null=True, verbose_name=_('created by'))
+    completed_by = models.ForeignKey(get_user_model(), on_delete=models.SET_NULL, related_name='orders_completed',
+                                     null=True, verbose_name=_('completed by'))
+    uncompleted_by = models.ForeignKey(get_user_model(), on_delete=models.SET_NULL, related_name='orders_uncompleted',
+                                       null=True, verbose_name=_('uncompleted by'))
+    edited_by = models.ForeignKey(get_user_model(), on_delete=models.SET_NULL, related_name='orders_edited',
+                                  null=True, verbose_name=_('edited by'))
+
     datetime_ordered = models.DateTimeField(auto_now_add=True, verbose_name=_('datetime ordered'))
     datetime_paid = models.DateTimeField(null=True, verbose_name=_('datetime payed'))
 
+    class Meta:
+        permissions = (
+            ("change_completed_order", "Can change completed order"),
+        )
+
     def __str__(self):
         return f'transaction: {self.transaction}'
+
+    def set_package(self):
+        self.price = self.package.price
+        self.discount = self.package.discount
+        self.discount_price = self.package.discount_price
+        self.token_quantity = self.package.token_quantity
+        self.save()
