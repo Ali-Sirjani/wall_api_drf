@@ -1,6 +1,7 @@
 from django.forms import ModelForm
 from django.contrib import messages
 from django.conf import settings
+from django.utils import timezone
 
 from .models import PackageAdToken
 
@@ -70,7 +71,6 @@ class PackageAdTokenForm(ModelForm):
             clean_data = {}
             return clean_data
 
-        print('this is changed_data', self.has_changed())
         # Set the created_by and price fields if the instance is new
         if self.instance.pk is None:
             clean_data['created_by'] = user
@@ -100,8 +100,66 @@ class PackageAdTokenForm(ModelForm):
                 # but the is_delete field is not True in clean data
                 self.instance.undelete_by = user
 
-        else:
+        elif self.has_changed():
             # If the user is not a superuser, disable confirmation
             self.instance.confirmation = False
 
         return clean_data
+
+
+class OrderForm(ModelForm):
+    class Meta:
+        model = PackageAdToken
+        fields = '__all__'
+
+    def clean(self):
+        # Retrieve the cleaned data
+        clean_data = super().clean()
+        # Get the current user
+        user = self.request.user
+
+        have_permission = user.has_perm('payment.change_completed_order')
+        order_completed = self.instance.completed
+        has_changed = self.has_changed()
+        is_new = self.instance.pk is None
+
+        if have_permission:
+            clean_data_completed = clean_data.get('completed')
+
+            if not order_completed or not clean_data_completed:
+                if clean_data_completed:
+                    if is_new:
+                        clean_data['completed_by'] = user
+                        clean_data['datetime_paid'] = timezone.now()
+                    else:
+                        self.instance.set_package()
+                        self.instance.completed_by = user
+                        self.instance.datetime_paid = timezone.now()
+                    
+                elif order_completed:
+                    self.instance.uncompleted_by = user
+
+                if is_new:
+                    clean_data['created_by'] = user
+
+                if has_changed:
+                    self.instance.edited_by = user
+
+            else:
+                messages.info(self.request, 'You can not change package until completed is True!')
+                clean_data = {}
+
+            return clean_data
+
+        elif not order_completed:
+            if type(clean_data.get('completed')) is bool:
+                del clean_data['completed']
+
+            if has_changed:
+                self.instance.edited_by = user
+
+            return clean_data
+
+        else:
+            clean_data = {}
+            return clean_data
