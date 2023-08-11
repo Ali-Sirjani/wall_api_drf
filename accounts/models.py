@@ -16,7 +16,8 @@ import ads
 class CustomUser(AbstractUser):
     username = models.CharField(blank=True, max_length=100, unique=True, verbose_name=_('username'))
     phone_number = PhoneNumberField(unique=True, region='IR', null=True, verbose_name=_('phone number'))
-    email = models.EmailField(blank=True, null=True, unique=True)
+    email = models.EmailField(blank=True, null=True, unique=True, verbose_name=_('email'))
+    ad_token = models.PositiveIntegerField(blank=True, default=0, verbose_name=_('ad token'))
 
     objects = UserManager()
 
@@ -29,7 +30,14 @@ class CustomUser(AbstractUser):
         if self.is_staff or self.is_superuser:
             return self.username
         else:
-            return self.phone_number
+            return str(self.phone_number)
+
+    def clean(self):
+        if not self.email:
+            self.email = None
+
+        if not self.phone_number:
+            self.phone_number = None
 
     def last_login_for_month(self):
         result = timezone.timedelta(days=30) <= timezone.now() - self.last_login
