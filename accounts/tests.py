@@ -23,13 +23,16 @@ class TestLogin(TestCase):
         self.assertEqual(self.user1.phone_number.as_e164, '+989323744991')
         self.assertEqual(self.user1.username, '+989323744991')
         self.assertFalse(self.user1.has_usable_password(), False)
+        self.assertEqual(self.user1.ad_token, 0)
         # user2 with phone_number and username
         self.assertEqual(self.user2.username, 'ALI')
         self.assertFalse(self.user2.has_usable_password(), False)
+        self.assertEqual(self.user2.ad_token, 0)
         # user3 is superuser with username and password
         self.assertEqual(self.user3.username, 'a')
         self.assertEqual(self.user3.check_password('1'), True)
         self.assertEqual(self.user3.phone_number, None)
+        self.assertEqual(self.user3.ad_token, 0)
 
     def test_unique_user_phone_number(self):
         self.user2.phone_number = '09323744991'
@@ -211,7 +214,7 @@ class TestLoginAPI(TestCase):
         response = self.client.get(reverse('accounts:profile_api') + f'?pk={self.user2.pk}',
                                    HTTP_AUTHORIZATION=f'Bearer {access_token_user2}')
         self.assertEqual(response.data.get('username'), self.user2.username)
-        self.assertEqual(len(response.data), 8)
+        self.assertEqual(len(response.data), 9)
 
         # get token
         access_token_user1 = RefreshToken.for_user(self.user1).access_token

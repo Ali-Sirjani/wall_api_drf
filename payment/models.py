@@ -149,3 +149,11 @@ class Order(models.Model):
         self.discount_price = self.package.discount_price
         self.token_quantity = self.package.token_quantity
         self.save()
+
+    def close_order(self):
+        self.set_package()
+        self.customer.ad_token += self.token_quantity
+        self.customer.save()
+        self.datetime_paid = timezone.now()
+        self.completed = True
+        self.save()
