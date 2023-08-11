@@ -11,6 +11,11 @@ from django.utils import timezone
 from phonenumber_field.modelfields import PhoneNumberField
 
 
+class ActivePackageManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(confirmation=True, is_delete=False)
+
+
 class PackageAdToken(models.Model):
     """
     The PackageAdToken model is used to represent a package of advertisement tokens in the system.
@@ -48,6 +53,9 @@ class PackageAdToken(models.Model):
     # soft-delete fields
     is_delete = models.BooleanField(default=False, verbose_name=_('is delete'))
     datetime_deleted = models.DateTimeField(null=True, blank=True, verbose_name=_('datetime deleted'))
+
+    objects = models.Manager()
+    active_objs = ActivePackageManager()
 
     class Meta:
         # Constraint to ensure that package names are unique when case is ignored.
