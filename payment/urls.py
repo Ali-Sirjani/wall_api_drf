@@ -5,6 +5,8 @@ from . import views
 app_name = 'payment'
 
 urlpatterns = [
+    path('checkout/', views.SandBoxProcessPaymentAPI.as_view(), name='sandbox_process'),
+    path('callback/', views.SandBoxCallPaymentAPI.as_view(), name='sandbox_callback'),
     path('package/list/', views.PackageAdTokenListAPI.as_view(), name='packages_list'),
     path('order/registration/', views.OrderRegistrationAPI.as_view(), name='order_registration'),
     path('order/list/', views.UserOrdersListAPI.as_view(), name='orders_list'),

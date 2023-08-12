@@ -143,6 +143,18 @@ class Order(models.Model):
     def __str__(self):
         return f'transaction: {self.transaction}'
 
+    def calc_price(self):
+        if self.price is None:
+            if self.package.discount:
+                return self.package.discount_price
+
+            return self.package.price
+
+        if self.discount:
+            return self.discount_price
+
+        return self.price
+
     def set_package(self):
         self.price = self.package.price
         self.discount = self.package.discount

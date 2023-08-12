@@ -5,9 +5,13 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 
+import requests
+import json
+
 from .models import PackageAdToken, Order
 from .serializers import PackageAdTokenSerializer, OrderCreateOrUpdateSerializer, OrderReadSerializer
 from .permissions import IsUserOrderOwner
+from .zarinpal import zarin_errors
 
 
 class PackageAdTokenListAPI(APIView):
@@ -49,7 +53,7 @@ class UserOrdersListAPI(APIView):
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
-        orders_list = Order.objects.filter(customer=request.user.pk)
+        orders_list = Order.objects.filter(customer=request.user.pk).order_by('-datetime_ordered')
 
         ser = OrderReadSerializer(orders_list, many=True)
 
@@ -95,3 +99,86 @@ class UpdateOrderAPI(APIView):
             return Response({'status': 'Done'}, status=status.HTTP_200_OK)
 
         return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SandBoxProcessPaymentAPI(APIView):
+    permission_classes = (IsAuthenticated, )
+
+    def get(self, request):
+        try:
+            order = Order.objects.get(customer=request.user.pk, completed=False)
+        except Order.DoesNotExist:
+            return Response({'message': 'You must register your order first'})
+
+        toman_total = order.calc_price()
+
+        rial_total = toman_total * 10
+
+        zarinpal_url = 'https://sandbox.zarinpal.com/pg/rest/WebGate/PaymentRequest.json'
+
+        request_header = {
+            'accept': 'application/json',
+            'content-type': 'application/json',
+        }
+
+        request_data = {
+            'MerchantID': 'test--' * 6,
+            'Amount': rial_total,
+            'Description': f'transaction id: {order.transaction}',
+            'CallbackURL': request.build_absolute_uri(reverse('payment:sandbox_callback')),
+        }
+
+        res = requests.post(url=zarinpal_url, data=json.dumps(request_data), headers=request_header)
+        data = res.json()
+        authority = data.get('Authority')
+
+        if 'errors' not in data or len(data['errors']) == 0:
+            payment_gateway_url = f'https://sandbox.zarinpal.com/pg/StartPay/{authority}'
+            return Response({'gateway url': payment_gateway_url}, status=status.HTTP_200_OK)
+        else:
+            return Response({'errors': data['errors']}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SandBoxCallPaymentAPI(APIView):
+    permission_classes = (IsAuthenticated, )
+
+    def get(self, request):
+        try:
+            order = Order.objects.get(customer=request.user.pk, completed=False)
+        except Order.DoesNotExist:
+            return Response({'message': 'You must register your order first'})
+
+        payment_authority = request.query_params.get('Authority')
+        payment_status = request.query_params.get('Status')
+
+        toman_total = order.calc_price()
+
+        rial_total = toman_total * 10
+
+        if payment_status == 'OK':
+            request_header = {
+                'accept': 'application/json',
+                'content-type': 'application/json',
+            }
+
+            request_data = {
+                'MerchantID': 'test--' * 6,
+                'Amount': rial_total,
+                'Authority': payment_authority,
+            }
+
+            zarinpal_url_varify = 'https://sandbox.zarinpal.com/pg/rest/WebGate/PaymentVerification.json'
+
+            res = requests.post(url=zarinpal_url_varify, data=json.dumps(request_data), headers=request_header)
+            data = res.json()
+
+            payment_code = data['Status']
+
+            if payment_code == 100:
+                order.close_order()
+                return Response({'status': 'Done', 'number of ad token bought': order.token_quantity})
+
+            return Response({'message': zarin_errors(payment_code)})
+
+        else:
+            return Response({'status': 'Failed'})
