@@ -70,6 +70,7 @@ class Ad(models.Model):
     # Indicates whether the ad has been confirmed by the staff of the site. Set by the staff.
     confirmation = models.BooleanField(default=False, verbose_name='confirmation', help_text='this is for admin')
 
+    is_use_ad_token = models.BooleanField(default=False, blank=True, verbose_name='is use ad token')
     datetime_created = models.DateTimeField(auto_now_add=True, verbose_name='datetime created')
     datetime_modified = models.DateTimeField(auto_now=True, verbose_name='datetime modified')
 
