@@ -26,13 +26,19 @@ class OrderCreateOrUpdateSerializer(serializers.ModelSerializer):
             'phone': {'required': True, 'allow_null': False},
         }
 
+    def validate_package(self, value):
+        if value.is_delete or not value.confirmation:
+            raise serializers.ValidationError('Invalid package value.')
+
+        return value
+
 
 class OrderReadSerializer(serializers.ModelSerializer):
     package = PackageAdTokenSerializer()
 
     class Meta:
         model = Order
-        fields = ('package', 'first_name', 'last_name', 'email', 'phone', 'order_note',
+        fields = ('pk', 'package', 'first_name', 'last_name', 'email', 'phone', 'order_note',
                   'transaction', 'price', 'discount', 'discount_price', 'token_quantity')
         read_only_fields = fields
 

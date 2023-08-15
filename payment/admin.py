@@ -137,8 +137,9 @@ class OrderAdmin(admin.ModelAdmin):
     def save_form(self, request, form, change):
         if not change:
             form.instance = self.model.objects.create(**form.cleaned_data)
-            
-            can_set_package = request.user.has_perm('payment.change_completed_order') and form.cleaned_data
+
+            can_set_package = (request.user.has_perm('payment.change_completed_order')
+                               and form.cleaned_data.get('completed'))
             if can_set_package:
                 form.instance.set_package()
 

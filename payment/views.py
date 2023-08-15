@@ -93,7 +93,6 @@ class UpdateOrderAPI(APIView):
             return Response({'message': 'You can not edit completed order'}, status=status.HTTP_400_BAD_REQUEST)
 
         if ser.is_valid():
-
             ser.save()
 
             return Response({'status': 'Done'}, status=status.HTTP_200_OK)
@@ -102,7 +101,7 @@ class UpdateOrderAPI(APIView):
 
 
 class SandBoxProcessPaymentAPI(APIView):
-    permission_classes = (IsAuthenticated, )
+    permission_classes = (IsAuthenticated,)
 
     def get(self, request):
         try:
@@ -130,9 +129,10 @@ class SandBoxProcessPaymentAPI(APIView):
 
         res = requests.post(url=zarinpal_url, data=json.dumps(request_data), headers=request_header)
         data = res.json()
-        authority = data.get('Authority')
 
         if 'errors' not in data or len(data['errors']) == 0:
+            authority = data.get('Authority')
+
             payment_gateway_url = f'https://sandbox.zarinpal.com/pg/StartPay/{authority}'
             return Response({'gateway url': payment_gateway_url}, status=status.HTTP_200_OK)
         else:
@@ -140,7 +140,7 @@ class SandBoxProcessPaymentAPI(APIView):
 
 
 class SandBoxCallPaymentAPI(APIView):
-    permission_classes = (IsAuthenticated, )
+    permission_classes = (IsAuthenticated,)
 
     def get(self, request):
         try:
@@ -148,14 +148,15 @@ class SandBoxCallPaymentAPI(APIView):
         except Order.DoesNotExist:
             return Response({'message': 'You must register your order first'})
 
-        payment_authority = request.query_params.get('Authority')
         payment_status = request.query_params.get('Status')
 
-        toman_total = order.calc_price()
-
-        rial_total = toman_total * 10
-
         if payment_status == 'OK':
+            payment_authority = request.query_params.get('Authority')
+
+            toman_total = order.calc_price()
+
+            rial_total = toman_total * 10
+
             request_header = {
                 'accept': 'application/json',
                 'content-type': 'application/json',
@@ -180,5 +181,4 @@ class SandBoxCallPaymentAPI(APIView):
 
             return Response({'message': zarin_errors(payment_code)})
 
-        else:
-            return Response({'status': 'Failed'})
+        return Response({'status': 'Failed'})
