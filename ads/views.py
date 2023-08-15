@@ -1,6 +1,5 @@
 from django.db.models import Q
 from django.db.utils import IntegrityError
-from django.utils import timezone
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -79,7 +78,7 @@ class ReportAdAPI(APIView):
 
     def post(self, request, pk):
         try:
-            ad = Ad.active_objs.get(pk=pk, is_delete=False)
+            ad = Ad.active_objs.get(pk=pk)
         except Ad.DoesNotExist:
             return Response({'message': f'There is no Ad with this pk({pk})'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -103,21 +102,49 @@ class CreateAdAPI(APIView):
     parser_classes = (MultiPartParser, )
 
     def post(self, request):
-        if request.user.has_free_ad_quota():
+        user = request.user
+        double_check = request.query_params.get('use')
+        is_use_ad_token = False
+
+        if user.has_free_ad_quota():
+            can_create = True
+
+        elif not double_check:
+            return Response(
+                {'message': 'You have reached your ad creation limit. for use ad token send use=True in params of url'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        elif not double_check == 'True':
+            return Response(
+                {'message': 'Send \'use\' like this use=True'}, status=status.HTTP_400_BAD_REQUEST)
+
+        elif user.try_using_ad_token(double_check):
+            can_create = True
+            is_use_ad_token = True
+
+        else:
+            return Response({'message': 'you have not ad token'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if can_create:
             if request.query_params.get('cancel'):
                 return cancel_create(request)
 
             ser = AdCreateOrUpdateSerializer(data=request.data)
 
             if ser.is_valid():
-                user_phone_e164 = request.user.phone_number.as_e164
+                user_phone_e164 = user.phone_number.as_e164
                 if not ser.validated_data['phone'] == user_phone_e164:
                     result = phone_number_verification(request)
 
                     if result is not True:
                         return result
 
-                ser.validated_data['author'] = request.user
+                if is_use_ad_token:
+                    ser.validated_data['is_use_ad_token'] = True
+
+                ser.validated_data['author'] = user
+
                 ser.save()
                 data = {
                     'status': 'Wait for confirmation',
@@ -125,8 +152,6 @@ class CreateAdAPI(APIView):
                 return Response(data, status=status.HTTP_200_OK)
 
             return Response(ser.errors, status.HTTP_400_BAD_REQUEST)
-
-        return Response({'message': 'You have reached your ad creation limit.'})
 
 
 class UpdateAdAPI(APIView):
