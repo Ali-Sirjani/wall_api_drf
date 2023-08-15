@@ -50,9 +50,24 @@ class CustomUser(AbstractUser):
         thirty_days_ago = current_date - timezone.timedelta(days=30)
 
         # Count the user's ads created within the last 30 days
-        ads_within_last_30_days = ads.models.Ad.objects.filter(author=self, datetime_created__gte=thirty_days_ago).count()
+        ads_within_last_30_days = ads.models.Ad.objects.filter(author=self, datetime_created__gte=thirty_days_ago,
+                                                               is_use_ad_token=False).count()
 
         return ads_within_last_30_days < settings.FREE_ADS_MONTHLY_QUOTA
+
+    def try_using_ad_token(self, can_use):
+        """
+        Use an ad token if 'can_use' is 'True' and tokens are available.
+
+        :param can_use: 'True' if the user intends to use the ad token, 'False' otherwise.
+        :return: True if a token was used, False otherwise.
+        """
+        if can_use == 'True' and self.ad_token:
+            self.ad_token -= 1
+            self.save()
+            return True
+
+        return False
 
 
 class CodeVerify(models.Model):
