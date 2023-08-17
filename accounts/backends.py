@@ -7,7 +7,7 @@ import phonenumbers
 
 
 def validate_ir_phone_number(phone_number, request):
-    if type(phone_number) == str:
+    if type(phone_number) is str:
         try:
             parsed_number = phonenumbers.parse(phone_number, "IR")
             if phonenumbers.is_valid_number(parsed_number):
@@ -17,7 +17,9 @@ def validate_ir_phone_number(phone_number, request):
         except phonenumbers.NumberParseException:
             return None, False
 
-    messages.error(request, 'Type Error')
+    if phone_number is not None:
+        messages.error(request, 'Type Error')
+
     return None, False
 
 
@@ -26,18 +28,20 @@ class UsernameOrPhoneModelBackend(ModelBackend):
         phone_number = kwargs.get('phone_number')
         number, validate = validate_ir_phone_number(phone_number, request)
         if validate:
-            kwargs = {'phone_number': number}
+            user_query_phone = {'phone_number': number}
             try:
-                user = CustomUser.objects.get(**kwargs)
+                user = CustomUser.objects.get(**user_query_phone)
                 return user
             except CustomUser.DoesNotExist:
                 return CustomUser.objects.create_user(phone=phone_number)
 
         password = kwargs.get('password')
-        kwargs = {'username': phone_number}
+        username = kwargs.get('username')
+        user_query_username = {'username': username}
         try:
-            user = CustomUser.objects.get(**kwargs)
+            user = CustomUser.objects.get(**user_query_username)
             if user.check_password(password) and user.is_staff:
+                print('this is in custom backend so it is ok')
                 return user
         except CustomUser.DoesNotExist:
             return None
