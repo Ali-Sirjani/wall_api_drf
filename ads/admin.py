@@ -22,19 +22,22 @@ class AdsAdmin(admin.ModelAdmin):
     readonly_fields = ('author', 'datetime_modified', 'expiration_date', 'datetime_deleted')
     list_display = ('title', 'price', 'active', 'confirmation', 'datetime_modified', 'expiration_date', 'is_delete')
     ordering = ('-datetime_modified', )
-    list_filter = ('active', 'is_delete', 'is_block')
+    list_filter = ('active', 'is_delete', 'is_block', 'is_use_ad_token')
     actions = ('soft_delete_selected', )
     inlines = (AdReportTabu, )
 
     def get_fields(self, request, obj=None):
         fields = ['author', 'title', 'text', 'price', 'image', 'status_product', 'category',
-                  'location', 'phone', 'active', 'slug', 'confirmation', 'datetime_modified', 'expiration_date']
+                  'location', 'phone', 'active', 'is_use_ad_token', 'slug', 'confirmation',
+                  'datetime_modified', 'expiration_date']
 
-        if obj.is_block:
-            fields.append('is_block')
+        if obj:
 
-        if obj.is_delete:
-            fields.extend(['is_delete', 'delete_with', 'datetime_deleted'])
+            if obj.is_block:
+                fields.append('is_block')
+
+            if obj.is_delete:
+                fields.extend(['is_delete', 'delete_with', 'datetime_deleted'])
 
         return fields
 

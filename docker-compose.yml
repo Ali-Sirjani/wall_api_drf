@@ -14,6 +14,7 @@ services:
     environment:
       - "DJANGO_SECRET_KEY=${DOCKER_COMPOSE_DJANGO_SECRET_KEY}"
       - "DJAGNO_DEBUG=${DOCKER_COMPOSE_DJANGO_DEBUG}"
+      - "AD_TOKEN_PRICE=${DOCKER_AD_TOKEN_PRICE}"
 
   celery-worker:
     build: .
@@ -25,6 +26,7 @@ services:
     environment:
       - "DJANGO_SECRET_KEY=${DOCKER_COMPOSE_DJANGO_SECRET_KEY}"
       - "DJAGNO_DEBUG=${DOCKER_COMPOSE_DJANGO_DEBUG}"
+      - "AD_TOKEN_PRICE=${DOCKER_AD_TOKEN_PRICE}"
     restart: unless-stopped
 
   celery-beat:
@@ -37,6 +39,7 @@ services:
     environment:
       - "DJANGO_SECRET_KEY=${DOCKER_COMPOSE_DJANGO_SECRET_KEY}"
       - "DJAGNO_DEBUG=${DOCKER_COMPOSE_DJANGO_DEBUG}"
+      - "AD_TOKEN_PRICE=${DOCKER_AD_TOKEN_PRICE}"
     restart: unless-stopped
 
   redis:

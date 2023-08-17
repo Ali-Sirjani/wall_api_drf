@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     # app local
     'ads',
     'accounts',
+    'payment',
 ]
 
 MIDDLEWARE = [
@@ -194,6 +195,17 @@ MAX_OTP_TRY = 2
 
 # limit create ads
 FREE_ADS_MONTHLY_QUOTA = 3
+
+# price ad token for one
+AD_TOKEN_PRICE = env.int('AD_TOKEN_PRICE')
+
+# Maximum Discount Percentage
+# This variable represents the maximum allowable discount percentage
+# that can be applied to an item's price. It defines the threshold
+# below which a discount price is considered invalid. For example,
+# if set to 30, it allows a calculated discount price to be up to
+# 30% smaller than the original price.
+MAX_DISCOUNT_PERCENT = 70
 
 # config celery
 CELERY_BROKER_URL = 'redis://redis:6379/0'

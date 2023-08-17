@@ -29,4 +29,5 @@ urlpatterns = [
     path('api/swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('home/', TemplateView.as_view(template_name='home.html'), name='home'),
     path('ads/', include('ads.urls')),
+    path('payment/', include('payment.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -16,7 +16,8 @@ import ads
 class CustomUser(AbstractUser):
     username = models.CharField(blank=True, max_length=100, unique=True, verbose_name=_('username'))
     phone_number = PhoneNumberField(unique=True, region='IR', null=True, verbose_name=_('phone number'))
-    email = models.EmailField(blank=True, null=True, unique=True)
+    email = models.EmailField(blank=True, null=True, unique=True, verbose_name=_('email'))
+    ad_token = models.PositiveIntegerField(blank=True, default=0, verbose_name=_('ad token'))
 
     objects = UserManager()
 
@@ -29,7 +30,14 @@ class CustomUser(AbstractUser):
         if self.is_staff or self.is_superuser:
             return self.username
         else:
-            return self.phone_number
+            return str(self.phone_number)
+
+    def clean(self):
+        if not self.email:
+            self.email = None
+
+        if not self.phone_number:
+            self.phone_number = None
 
     def last_login_for_month(self):
         result = timezone.timedelta(days=30) <= timezone.now() - self.last_login
@@ -42,9 +50,24 @@ class CustomUser(AbstractUser):
         thirty_days_ago = current_date - timezone.timedelta(days=30)
 
         # Count the user's ads created within the last 30 days
-        ads_within_last_30_days = ads.models.Ad.objects.filter(author=self, datetime_created__gte=thirty_days_ago).count()
+        ads_within_last_30_days = ads.models.Ad.objects.filter(author=self, datetime_created__gte=thirty_days_ago,
+                                                               is_use_ad_token=False).count()
 
         return ads_within_last_30_days < settings.FREE_ADS_MONTHLY_QUOTA
+
+    def try_using_ad_token(self, can_use):
+        """
+        Use an ad token if 'can_use' is 'True' and tokens are available.
+
+        :param can_use: 'True' if the user intends to use the ad token, 'False' otherwise.
+        :return: True if a token was used, False otherwise.
+        """
+        if can_use == 'True' and self.ad_token:
+            self.ad_token -= 1
+            self.save()
+            return True
+
+        return False
 
 
 class CodeVerify(models.Model):
