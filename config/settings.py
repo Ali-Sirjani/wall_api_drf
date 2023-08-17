@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'celery',
     'django_celery_beat',
+    'axes',
 
     # app local
     'ads',
@@ -61,6 +62,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # Default middlewares
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -68,6 +70,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Middleware for enhanced security and protection against brute-force login attempts using Django Axes.
+    'axes.middleware.AxesMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -177,10 +181,28 @@ SPECTACULAR_SETTINGS = {
 AUTH_USER_MODEL = 'accounts.CustomUser'
 LOGOUT_REDIRECT_URL = 'home'
 
+# Custom Authentication Backends Configuration
+# -------------------------------------------
+# Define the order of authentication backends for user login.
+# 1. 'AxesStandaloneBackend': Handles rate limiting and blocking for login attempts.
+# 2. 'UsernameOrPhoneModelBackend': Custom backend that allows login using either username or phone number.
+#    - Uses username for admin panel login.
+#    - Uses phone number for normal user login.
+# 3. 'ModelBackend': Default Django authentication backend for username and password.
 AUTHENTICATION_BACKENDS = [
-    'accounts.backends.UsernameOrPhoneModelBackend',
-    'django.contrib.auth.backends.ModelBackend',
+    'axes.backends.AxesStandaloneBackend',  # Rate limiting and blocking
+    'accounts.backends.UsernameOrPhoneModelBackend',  # Custom login with flexible username/phone
+    'django.contrib.auth.backends.ModelBackend',  # Default username and password login
 ]
+
+# config django axes
+AXES_FAILURE_LIMIT = 5  # Maximum allowed login failures before lockout.
+AXES_LOCK_OUT_AT_FAILURE = True  # Enable lockout after exceeding failure limit.
+AXES_COOLOFF_TIME = 0.04   # Time period (in days) for cooling off during lockout.
+AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False  # Don't reset cool-off time on each failure during lockout.
+AXES_PASSWORD_FORM_FIELD = 'code'  # Using 'code' as the password-equivalent field for rate limiting.
+AXES_USERNAME_FORM_FIELD = 'phone_number'  # Name of the form field for the username or identifier.
+
 
 # crispy form
 CRISPY_TEMPLATE_PACK = 'bootstrap5'
