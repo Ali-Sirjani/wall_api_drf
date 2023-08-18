@@ -19,6 +19,9 @@ class CustomUser(AbstractUser):
     email = models.EmailField(blank=True, null=True, unique=True, verbose_name=_('email'))
     ad_token = models.PositiveIntegerField(blank=True, default=0, verbose_name=_('ad token'))
 
+    count_login = models.PositiveIntegerField(blank=True, default=0, verbose_name=_('count login'))
+    block_time = models.DateTimeField(null=True, blank=True, verbose_name=_('block time'))
+
     objects = UserManager()
 
     def __str__(self):
@@ -38,6 +41,42 @@ class CustomUser(AbstractUser):
 
         if not self.phone_number:
             self.phone_number = None
+
+    def can_login(self, login_success=False):
+        """
+        Determine user's action eligibility based on rate limiting.
+
+        :param: login_success: Whether a successful login has occurred. Default is False.
+        :return: True if action is allowed; False if blocked due to rate limiting.
+        """
+        # Check if there is a recorded last login time for the user
+        if self.last_login:
+            reset_time = timezone.timedelta(minutes=10)
+            time_since_last_login = timezone.now() - self.last_login
+
+            if login_success:
+                # Increment the login attempt counter if a successful login
+                self.count_login += 1
+
+            elif reset_time < time_since_last_login:
+                # Reset counters if enough time has passed since the last login
+                self.count_login = 0
+                self.block_time = None
+
+            if settings.MAX_LOGIN <= self.count_login:
+                # Apply rate limiting if the maximum allowed login attempts is reached
+                self.block_time = timezone.now() + timezone.timedelta(minutes=5)
+
+            self.save()
+
+            # Check if the user is currently blocked due to rate limiting
+            if self.block_time is None:
+                return True
+
+            return False
+
+        # If there is no recorded last login time, allow the login action
+        return True
 
     def last_login_for_month(self):
         result = timezone.timedelta(days=30) <= timezone.now() - self.last_login

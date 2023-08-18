@@ -214,6 +214,7 @@ MESSAGE_TAGS = {
 
 # config otp
 MAX_OTP_TRY = 2
+MAX_LOGIN = 3
 
 # limit create ads
 FREE_ADS_MONTHLY_QUOTA = 3
