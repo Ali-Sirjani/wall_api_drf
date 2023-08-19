@@ -1,5 +1,5 @@
-from django.contrib import messages
 from django.db import models
+from django.contrib import messages
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -10,12 +10,17 @@ from phonenumber_field.modelfields import PhoneNumberField
 import secrets
 
 from .managers import UserManager
+import ads
 
 
 class CustomUser(AbstractUser):
     username = models.CharField(blank=True, max_length=100, unique=True, verbose_name=_('username'))
     phone_number = PhoneNumberField(unique=True, region='IR', null=True, verbose_name=_('phone number'))
-    email = models.EmailField(blank=True, null=True, unique=True)
+    email = models.EmailField(blank=True, null=True, unique=True, verbose_name=_('email'))
+    ad_token = models.PositiveIntegerField(blank=True, default=0, verbose_name=_('ad token'))
+
+    count_login = models.PositiveIntegerField(blank=True, default=0, verbose_name=_('count login'))
+    block_time = models.DateTimeField(null=True, blank=True, verbose_name=_('block time'))
 
     objects = UserManager()
 
@@ -28,11 +33,80 @@ class CustomUser(AbstractUser):
         if self.is_staff or self.is_superuser:
             return self.username
         else:
-            return self.phone_number
+            return str(self.phone_number)
+
+    def clean(self):
+        if not self.email:
+            self.email = None
+
+        if not self.phone_number:
+            self.phone_number = None
+
+    def can_login(self, login_success=False):
+        """
+        Determine user's action eligibility based on rate limiting.
+
+        :param: login_success: Whether a successful login has occurred. Default is False.
+        :return: True if action is allowed; False if blocked due to rate limiting.
+        """
+        # Check if there is a recorded last login time for the user
+        if self.last_login:
+            reset_time = timezone.timedelta(minutes=10)
+            time_since_last_login = timezone.now() - self.last_login
+
+            if login_success:
+                # Increment the login attempt counter if a successful login
+                self.count_login += 1
+
+            elif reset_time < time_since_last_login:
+                # Reset counters if enough time has passed since the last login
+                self.count_login = 0
+                self.block_time = None
+
+            if settings.MAX_LOGIN <= self.count_login:
+                # Apply rate limiting if the maximum allowed login attempts is reached
+                self.block_time = timezone.now() + timezone.timedelta(minutes=5)
+
+            self.save()
+
+            # Check if the user is currently blocked due to rate limiting
+            if self.block_time is None:
+                return True
+
+            return False
+
+        # If there is no recorded last login time, allow the login action
+        return True
 
     def last_login_for_month(self):
         result = timezone.timedelta(days=30) <= timezone.now() - self.last_login
         return result
+
+    def has_free_ad_quota(self):
+        # Get the current date
+        current_date = timezone.now()
+        # Calculate the date 30 days ago
+        thirty_days_ago = current_date - timezone.timedelta(days=30)
+
+        # Count the user's ads created within the last 30 days
+        ads_within_last_30_days = ads.models.Ad.objects.filter(author=self, datetime_created__gte=thirty_days_ago,
+                                                               is_use_ad_token=False).count()
+
+        return ads_within_last_30_days < settings.FREE_ADS_MONTHLY_QUOTA
+
+    def try_using_ad_token(self, can_use):
+        """
+        Use an ad token if 'can_use' is 'True' and tokens are available.
+
+        :param can_use: 'True' if the user intends to use the ad token, 'False' otherwise.
+        :return: True if a token was used, False otherwise.
+        """
+        if can_use == 'True' and self.ad_token:
+            self.ad_token -= 1
+            self.save()
+            return True
+
+        return False
 
 
 class CodeVerify(models.Model):

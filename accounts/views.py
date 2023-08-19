@@ -10,10 +10,11 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 
-from .models import CustomUser
+from .models import CustomUser, CodeVerify
 from .forms import CustomAuthenticationForm, CodeVerifyForm
 from .serializers import LoginSerializer, CodeVarifySerializer, UserSerializer, UpdateUserSerializer
 from .permission import IsOwner
+from .utils import signal_failed
 
 
 class LoginView(auth_views.LoginView):
@@ -28,18 +29,23 @@ class LoginView(auth_views.LoginView):
             user = authenticate(self.request, phone_number=phone_number.as_e164)
 
             if user is not None:
-                code_varify = user.codeverify  # Retrieves the code verification instance for the user.
-                if code_varify.send_code():
-                    self.request.session['pk'] = user.pk
+                code_varify, created = CodeVerify.objects.get_or_create(user=user)
 
-                    if code_varify.code_time_validity():
-                        code_varify.create_code()  # Generates a new verification code.
+                if user.can_login():
+                    if code_varify.send_code():
+                        self.request.session['pk'] = user.pk
 
-                    # send code
-                    print('this is code: ', code_varify.code)
-                    return redirect(self.success_url)
+                        if code_varify.code_time_validity():
+                            code_varify.create_code()  # Generates a new verification code.
 
-                form.add_error(None, 'Please after 10 minutes try Again')
+                        # send code
+                        print('this is code: ', code_varify.code)
+                        return redirect(self.success_url)
+
+                    form.add_error(None, 'Please after 10 minutes try Again')
+
+                else:
+                    form.add_error(None, 'You blocked because of too many login')
 
         return self.form_invalid(form)
 
@@ -62,7 +68,7 @@ def check_code_view(request):
         referer = request.META.get('HTTP_REFERER')
         allow_url = request.build_absolute_uri(reverse('accounts:login'))
 
-        code_varify = user.codeverify
+        code_varify, created = CodeVerify.objects.get_or_create(user=user)
 
         if referer == allow_url or code_varify.expiration_timestamp is not None:
             form = CodeVerifyForm(request.POST or None)
@@ -87,13 +93,13 @@ def check_code_view(request):
                             messages.success(request, 'Welcome back to our site')
 
                         login(request, user, backend='accounts.backends.UsernameOrPhoneModelBackend')
-                        code_varify.expiration_timestamp = None
-                        code_varify.count_otp = 0
-                        code_varify.save()
+                        code_varify.reset()
+                        user.can_login(True)
                         return redirect('home')
                     else:
                         messages.error(request, 'The code has timed out!')
                 else:
+                    signal_failed(request, user.phone_number)
                     messages.error(request, 'The code is incorrect!')
 
             context = {'form': form, 'code_varify': code_varify}
@@ -106,31 +112,46 @@ def check_code_view(request):
 
 
 class LogoutView(auth_views.LogoutView):
-    pass
+
+    def get(self, request):
+        user = request.user
+        if user.is_authenticated:
+            code_varify, created = CodeVerify.objects.get_or_create(user=user)
+            code_varify.reset()
+
+        return super(LogoutView, self).get(request)
 
 
 class LoginAPI(APIView):
+    serializer_class = LoginSerializer
+
     def post(self, request):
         ser = LoginSerializer(data=request.data)
 
         if ser.is_valid():
             phone_number = ser.validated_data.get('phone_number')
 
-            user = authenticate(request.data, phone_number=phone_number.as_e164)
+            user = authenticate(request, phone_number=phone_number.as_e164)
             if user:
-                code_varify = user.codeverify
-                if code_varify.send_code():
-                    if code_varify.code_time_validity():
-                        code_varify.create_code()
-                    print('this is code: ', code_varify.code)
-                    return Response({'user_id': user.pk}, status=status.HTTP_200_OK)
 
-                ser._errors.update({'times': 'max otp try'})
+                code_varify, created = CodeVerify.objects.get_or_create(user=user)
+                if user.can_login():
+                    if code_varify.send_code():
+                        if code_varify.code_time_validity():
+                            code_varify.create_code()
+                        print('this is code: ', code_varify.code)
+                        return Response({'user_id': user.pk}, status=status.HTTP_200_OK)
+
+                    ser._errors.update({'times': 'max otp try'})
+
+                return Response({'message': 'You limit for too many logout'})
 
         return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CheckCodeAPI(APIView):
+    serializer_class = CodeVarifySerializer
+
     def post(self, request):
         ser = CodeVarifySerializer(data=request.data)
 
@@ -141,7 +162,8 @@ class CheckCodeAPI(APIView):
             except CustomUser.DoesNotExist:
                 return Response({'user_id': 'user id is invalid'}, status=status.HTTP_400_BAD_REQUEST)
 
-            code_varify = user.codeverify
+            code_varify, created = CodeVerify.objects.get_or_create(user=user)
+
             if code_varify.expiration_timestamp is not None:
 
                 send_again = ser.validated_data.get('send_again')
@@ -159,6 +181,8 @@ class CheckCodeAPI(APIView):
 
                 if code_varify.code == code:
                     if not code_varify.is_expired():
+                        user.can_login(True)
+
                         refresh = RefreshToken.for_user(user)
                         access_token = str(refresh.access_token)
                         refresh_token = str(refresh)
@@ -179,6 +203,7 @@ class CheckCodeAPI(APIView):
 
                     return Response({'code': 'code has expired'}, status=status.HTTP_400_BAD_REQUEST)
 
+                signal_failed(request, user.phone_number)
                 return Response({'code': 'wrong code'}, status=status.HTTP_400_BAD_REQUEST)
 
             return Response({'authentication': 'user did not create a code.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -188,6 +213,7 @@ class CheckCodeAPI(APIView):
 
 class UserInfoAPI(APIView):
     permission_classes = [IsAuthenticated, IsOwner]
+    serializer_class = UserSerializer
 
     def get(self, request):
         pk = request.query_params.get('pk')
@@ -208,6 +234,7 @@ class UserInfoAPI(APIView):
 
 class EditUserInfoAPI(APIView):
     permission_classes = [IsAuthenticated, IsOwner]
+    serializer_class = UpdateUserSerializer
 
     def post(self, request):
         pk = request.query_params.get('pk')

@@ -9,7 +9,7 @@ from .forms import CustomUserCreationAdminForm, CustomUserChangeForm
 class CustomUserAdmin(UserAdmin):
     form = CustomUserChangeForm
     fieldsets = UserAdmin.fieldsets + (
-        (None, {'fields': ('phone_number', )}),
+        (None, {'fields': ('phone_number', 'ad_token')}),
     )
 
     add_form = CustomUserCreationAdminForm
@@ -37,11 +37,17 @@ class CustomUserAdmin(UserAdmin):
                     username=username,
                     password=password,
                 )
+
+                # For staff users, ensure they have appropriate privileges.
+                # Set 'is_superuser' and 'is_admin' to False to limit their authority.
+                form.instance.is_superuser = False
+                form.instance.is_admin = False
+
         return super().save_form(request, form, change)
 
 
 @admin.register(CodeVerify)
-class CustomUserAdmin(admin.ModelAdmin):
+class CodeVerifyAdmin(admin.ModelAdmin):
     pass
 
 

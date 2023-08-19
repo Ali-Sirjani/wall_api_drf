@@ -31,9 +31,6 @@ class CustomUserCreationAdminForm(UserCreationForm):
 
             return clean_data
 
-        self.fields['password1'].required = False
-        self.fields['password2'].required = False
-
         phone_number = clean_data.get('phone_number')
         if not phone_number or password:
             self.add_error(None, 'do not fill out password field just phone number and username is optional for'
