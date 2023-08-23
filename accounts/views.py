@@ -13,7 +13,6 @@ from rest_framework.permissions import IsAuthenticated
 from .models import CustomUser, CodeVerify
 from .forms import CustomAuthenticationForm, CodeVerifyForm
 from .serializers import LoginSerializer, CodeVarifySerializer, UserSerializer, UpdateUserSerializer
-from .permission import IsOwner
 from .utils import signal_failed
 
 
@@ -212,48 +211,26 @@ class CheckCodeAPI(APIView):
 
 
 class UserInfoAPI(APIView):
-    permission_classes = [IsAuthenticated, IsOwner]
+    permission_classes = (IsAuthenticated, )
     serializer_class = UserSerializer
 
     def get(self, request):
-        pk = request.query_params.get('pk')
-
-        if pk:
-            try:
-                user = CustomUser.objects.get(pk=pk)
-            except CustomUser.DoesNotExist:
-                return Response({'message': f'There is no user with pk {pk}'}, status=status.HTTP_400_BAD_REQUEST)
-
-            self.check_object_permissions(request, user)
-
-            ser = UserSerializer(user)
-            return Response(ser.data, status=status.HTTP_200_OK)
-
-        return Response({'message': 'send pk'}, status=status.HTTP_400_BAD_REQUEST)
+        ser = UserSerializer(request.user)
+        return Response(ser.data, status=status.HTTP_200_OK)
 
 
 class EditUserInfoAPI(APIView):
-    permission_classes = [IsAuthenticated, IsOwner]
+    permission_classes = [IsAuthenticated]
     serializer_class = UpdateUserSerializer
 
-    def post(self, request):
-        pk = request.query_params.get('pk')
+    def put(self, request):
+        ser = UpdateUserSerializer(request.user, data=request.data, partial=True)
 
-        if pk:
-            try:
-                user = CustomUser.objects.get(pk=pk)
-            except CustomUser.DoesNotExist:
-                return Response({'message': f'There is no user with pk {pk}'}, status=status.HTTP_400_BAD_REQUEST)
+        if ser.is_valid():
+            if not len(ser.validated_data):
+                return Response({'message': 'You must enter at least one field'},
+                                status=status.HTTP_400_BAD_REQUEST)
+            ser.save()
+            return Response({'status': 'Done'}, status=status.HTTP_200_OK)
 
-            self.check_object_permissions(request, user)
-
-            ser = UpdateUserSerializer(user, data=request.data, partial=True)
-
-            if ser.is_valid():
-                if not len(ser.validated_data):
-                    return Response({'message': 'You must enter at least one field'},
-                                    status=status.HTTP_400_BAD_REQUEST)
-                ser.save()
-                return Response({'status': 'Done'}, status=status.HTTP_200_OK)
-
-            return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
