@@ -12,8 +12,3 @@ from .models import CustomUser, CodeVerify
 def create_code_verify(sender, instance, created, *args, **kwargs):
     if created:
         CodeVerify.objects.create(user=instance)
-
-
-@receiver(user_locked_out)
-def raise_permission_denied(*args, **kwargs):
-    raise PermissionDenied("Too many failed login attempts")
