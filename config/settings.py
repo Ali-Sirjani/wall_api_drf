@@ -181,6 +181,10 @@ SPECTACULAR_SETTINGS = {
 AUTH_USER_MODEL = 'accounts.CustomUser'
 LOGOUT_REDIRECT_URL = 'home'
 
+MAX_LOGIN = 3
+LOGIN_SUCCESS_CHECK_PERIOD_MINUTE = 20
+BLOCK_TIME_MAX_LOGIN_MINUTE = 60
+
 # Custom Authentication Backends Configuration
 # -------------------------------------------
 # Define the order of authentication backends for user login.
@@ -214,10 +218,11 @@ MESSAGE_TAGS = {
 
 # config otp
 MAX_OTP_TRY = 2
-MAX_LOGIN = 3
+RESET_TIME_OTP_MINUTE = 4
+LIMIT_TIME_MAX_OTP = 1
 
-# limit create ads
-FREE_ADS_MONTHLY_QUOTA = 3
+# config ads
+FREE_ADS_MONTHLY_QUOTA = 3  # Limit create ads
 
 # price ad token for one
 AD_TOKEN_PRICE = env.int('AD_TOKEN_PRICE')
