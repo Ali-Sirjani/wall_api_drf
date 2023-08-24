@@ -1,6 +1,7 @@
 from django.contrib.auth import login, authenticate, views as auth_views
 from django.urls import reverse_lazy
-from django.shortcuts import redirect, render, reverse
+from django.utils.decorators import method_decorator
+from django.shortcuts import redirect, render
 from django.contrib import messages
 from django.utils import timezone
 
@@ -9,6 +10,8 @@ from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
+
+from axes.decorators import axes_dispatch
 
 from .models import CustomUser, CodeVerify
 from .forms import CustomAuthenticationForm, CodeVerifyForm
@@ -31,17 +34,19 @@ class LoginView(auth_views.LoginView):
                 code_varify, created = CodeVerify.objects.get_or_create(user=user)
 
                 if user.can_login():
-                    if code_varify.send_code():
-                        self.request.session['pk'] = user.pk
+                    if code_varify.can_start_again():
+                        code_varify.reset()
 
-                        if code_varify.code_time_validity():
+                    self.request.session['pk'] = user.pk
+
+                    if code_varify.code_time_validity():
+                        if code_varify.send_code():
                             code_varify.create_code()  # Generates a new verification code.
 
-                        # send code
-                        print('this is code: ', code_varify.code)
-                        return redirect(self.success_url)
+                            # send code
+                            print('this is code: ', code_varify.code)
 
-                    form.add_error(None, 'Please after 10 minutes try Again')
+                    return redirect(self.success_url)
 
                 else:
                     form.add_error(None, 'You blocked because of too many login')
@@ -55,6 +60,7 @@ class LoginView(auth_views.LoginView):
         return super().dispatch(request, *args, **kwargs)
 
 
+@axes_dispatch
 def check_code_view(request):
     pk = request.session.get('pk')
     if pk:
@@ -64,12 +70,12 @@ def check_code_view(request):
             messages.error(request, 'Something went wrong. Please try again!')
             return redirect('accounts:login')
 
-        referer = request.META.get('HTTP_REFERER')
-        allow_url = request.build_absolute_uri(reverse('accounts:login'))
-
         code_varify, created = CodeVerify.objects.get_or_create(user=user)
 
-        if referer == allow_url or code_varify.expiration_timestamp is not None:
+        if code_varify.can_start_again():
+            code_varify.reset()
+
+        if code_varify.expiration_timestamp is not None:
             form = CodeVerifyForm(request.POST or None)
 
             code = code_varify.code
@@ -86,6 +92,8 @@ def check_code_view(request):
 
                 if code == num:
                     if not code_varify.is_expired():
+                        del request.session['pk']
+
                         if user.last_login is None:
                             messages.success(request, 'Welcome to our site.')
                         elif user.last_login_for_month():
@@ -121,6 +129,7 @@ class LogoutView(auth_views.LogoutView):
         return super(LogoutView, self).get(request)
 
 
+@method_decorator(axes_dispatch, name='dispatch')
 class LoginAPI(APIView):
     serializer_class = LoginSerializer
 
@@ -135,19 +144,24 @@ class LoginAPI(APIView):
 
                 code_varify, created = CodeVerify.objects.get_or_create(user=user)
                 if user.can_login():
-                    if code_varify.send_code():
-                        if code_varify.code_time_validity():
-                            code_varify.create_code()
-                        print('this is code: ', code_varify.code)
-                        return Response({'user_id': user.pk}, status=status.HTTP_200_OK)
+                    if code_varify.can_start_again():
+                        code_varify.reset()
 
-                    ser._errors.update({'times': 'max otp try'})
+                    if code_varify.code_time_validity():
+                        if code_varify.send_code():
+                            code_varify.create_code()
+
+                            # send code
+                            print('this is code: ', code_varify.code)
+
+                    return Response({'user_id': user.pk}, status=status.HTTP_200_OK)
 
                 return Response({'message': 'You limit for too many logout'})
 
         return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@method_decorator(axes_dispatch, name='dispatch')
 class CheckCodeAPI(APIView):
     serializer_class = CodeVarifySerializer
 
@@ -162,6 +176,9 @@ class CheckCodeAPI(APIView):
                 return Response({'user_id': 'user id is invalid'}, status=status.HTTP_400_BAD_REQUEST)
 
             code_varify, created = CodeVerify.objects.get_or_create(user=user)
+
+            if code_varify.can_start_again():
+                code_varify.reset()
 
             if code_varify.expiration_timestamp is not None:
 
