@@ -76,6 +76,7 @@ class Ad(models.Model):
 
     # block field
     is_block = models.BooleanField(default=False, blank=True, verbose_name='is block')
+    count_reports = models.PositiveIntegerField(default=0, blank=True, verbose_name='count reports')
 
     # soft-delete fields
     expiration_date = models.DateTimeField(null=True, verbose_name='expiration date')
@@ -104,10 +105,14 @@ class Ad(models.Model):
 
 
 class AdReport(models.Model):
-    ad = models.ForeignKey(Ad, on_delete=models.CASCADE, related_name='reports')
-    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='reported_ads')
-    report_reason = models.TextField()
-    datetime_reported = models.DateTimeField(auto_now_add=True)
+    ad = models.ForeignKey(Ad, on_delete=models.CASCADE, related_name='reports', verbose_name='ad')
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='reported_ads',
+                             verbose_name='user')
+    report_reason = models.TextField(verbose_name='report reason')
+
+    investigated = models.BooleanField(blank=True, default=False, verbose_name='investigated')
+
+    datetime_reported = models.DateTimeField(auto_now_add=True, verbose_name='datetime reported')
 
     class Meta:
         unique_together = ['ad', 'user']
