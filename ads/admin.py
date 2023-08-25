@@ -52,7 +52,6 @@ class AdsAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         if change:
-            print('this is reports: ', not obj.is_block and 'is_block' in form.changed_data)
             if not obj.is_block and 'is_block' in form.changed_data:
                 obj.reports.filter(investigated=False).update(investigated=True)
                 obj.count_reports = 0
