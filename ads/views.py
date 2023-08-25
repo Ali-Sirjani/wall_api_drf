@@ -33,7 +33,7 @@ class CategoryListAPI(APIView):
 
 
 class AdsListWithCategoryAPI(APIView):
-    def post(self, request, pk):
+    def get(self, request, pk):
         try:
             category = Category.objects.get(pk=pk)
         except Category.DoesNotExist:
@@ -67,7 +67,7 @@ class AdDetailAPI(APIView):
         try:
             ad = Ad.active_objs.get(pk=pk)
         except Ad.DoesNotExist:
-            return Response({'message: ': f'There is no ad with this pk {pk}'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'message': f'There is no ad with this pk {pk}'}, status=status.HTTP_400_BAD_REQUEST)
 
         ser = AdDetailSerializer(ad)
         return Response(ser.data, status=status.HTTP_200_OK)
@@ -89,6 +89,8 @@ class ReportAdAPI(APIView):
             ser.validated_data['user'] = request.user
             try:
                 ser.save()
+                ser.instance.ad.count_reports += 1
+                ser.instance.ad.save()
                 return Response({'message': 'Ad reported successfully.'}, status=status.HTTP_201_CREATED)
             except IntegrityError:
                 return Response({'message': 'You have already reported this ad.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -142,6 +144,8 @@ class CreateAdAPI(APIView):
 
                 if is_use_ad_token:
                     ser.validated_data['is_use_ad_token'] = True
+                    request.user.token_activated = False
+                    request.user.save()
 
                 ser.validated_data['author'] = user
 
@@ -149,7 +153,7 @@ class CreateAdAPI(APIView):
                 data = {
                     'status': 'Wait for confirmation',
                 }
-                return Response(data, status=status.HTTP_200_OK)
+                return Response(data, status=status.HTTP_201_CREATED)
 
             return Response(ser.errors, status.HTTP_400_BAD_REQUEST)
 
