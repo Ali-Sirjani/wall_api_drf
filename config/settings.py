@@ -206,7 +206,7 @@ AXES_COOLOFF_TIME = 0.04   # Time period (in days) for cooling off during lockou
 AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False  # Don't reset cool-off time on each failure during lockout.
 AXES_PASSWORD_FORM_FIELD = 'code'  # Using 'code' as the password-equivalent field for rate limiting.
 AXES_USERNAME_FORM_FIELD = 'phone_number'  # Name of the form field for the username or identifier.
-
+AXES_LOCKOUT_CALLABLE = 'accounts.utils.custom_lockout_response'
 
 # crispy form
 CRISPY_TEMPLATE_PACK = 'bootstrap5'

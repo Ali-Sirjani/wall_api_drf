@@ -11,12 +11,10 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 
-from axes.decorators import axes_dispatch
-
 from .models import CustomUser, CodeVerify
 from .forms import CustomAuthenticationForm, CodeVerifyForm
 from .serializers import LoginSerializer, CodeVarifySerializer, UserSerializer, UpdateUserSerializer
-from .utils import signal_failed
+from .utils import signal_failed, custom_axes_dispatch_with_source
 
 
 class LoginView(auth_views.LoginView):
@@ -60,7 +58,7 @@ class LoginView(auth_views.LoginView):
         return super().dispatch(request, *args, **kwargs)
 
 
-@axes_dispatch
+@custom_axes_dispatch_with_source(request_from='web')
 def check_code_view(request):
     pk = request.session.get('pk')
     if pk:
@@ -129,7 +127,7 @@ class LogoutView(auth_views.LogoutView):
         return super(LogoutView, self).get(request)
 
 
-@method_decorator(axes_dispatch, name='dispatch')
+@method_decorator(custom_axes_dispatch_with_source(request_from='api'), name='dispatch')
 class LoginAPI(APIView):
     serializer_class = LoginSerializer
 
@@ -161,7 +159,7 @@ class LoginAPI(APIView):
         return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@method_decorator(axes_dispatch, name='dispatch')
+@method_decorator(custom_axes_dispatch_with_source(request_from='api'), name='dispatch')
 class CheckCodeAPI(APIView):
     serializer_class = CodeVarifySerializer
 
