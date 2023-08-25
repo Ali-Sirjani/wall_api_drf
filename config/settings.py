@@ -223,6 +223,7 @@ LIMIT_TIME_MAX_OTP = 1
 
 # config ads
 FREE_ADS_MONTHLY_QUOTA = 3  # Limit create ads
+MIN_REPORTS_TO_BLOCK_AD = 5  # Minimum reports to block an ad
 
 # price ad token for one
 AD_TOKEN_PRICE = env.int('AD_TOKEN_PRICE')
@@ -248,5 +249,9 @@ CELERY_BEAT_SCHEDULE = {
     'remove_ads_expired': {
         'task': 'ads.tasks.check_expiration_date_every_day',
         'schedule': crontab(minute='0', hour='0'),
-    }
+    },
+    'block_ads': {
+        'task': 'ads.tasks.check_reports_of_ads',
+        'schedule': crontab(minute='0', hour='1'),
+    },
 }
