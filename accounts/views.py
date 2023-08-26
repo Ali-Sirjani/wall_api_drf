@@ -1,6 +1,7 @@
 from django.contrib.auth import login, authenticate, views as auth_views
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
+from django.conf import settings
 from django.shortcuts import redirect, render
 from django.contrib import messages
 from django.utils import timezone
@@ -41,8 +42,9 @@ class LoginView(auth_views.LoginView):
                         if code_varify.send_code():
                             code_varify.create_code()  # Generates a new verification code.
 
-                            # send code
-                            print('this is code: ', code_varify.code)
+                            if not settings.TESTING:
+                                # send code
+                                print('this is code: ', code_varify.code)
 
                     return redirect(self.success_url)
 
@@ -80,8 +82,10 @@ def check_code_view(request):
             send_again = request.GET.get('send_again')
             if send_again == 'True':
                 if code_varify.send_code(request):
-                    # send code
-                    print('this is code: ', code_varify.code)
+
+                    if not settings.TESTING:
+                        # send code
+                        print('this is code: ', code_varify.code)
 
                 return redirect('accounts:check_code')
 
@@ -149,8 +153,9 @@ class LoginAPI(APIView):
                         if code_varify.send_code():
                             code_varify.create_code()
 
-                            # send code
-                            print('this is code: ', code_varify.code)
+                            if not settings.TESTING:
+                                # send code
+                                print('this is code: ', code_varify.code)
 
                     return Response({'user_id': user.pk}, status=status.HTTP_200_OK)
 
@@ -183,8 +188,10 @@ class CheckCodeAPI(APIView):
                 send_again = ser.validated_data.get('send_again')
                 if send_again:
                     if code_varify.send_code():
-                        # send code
-                        print('this is code: ', code_varify.code)
+
+                        if not settings.TESTING:
+                            # send code
+                            print('this is code: ', code_varify.code)
 
                         return Response({'send again': 'Done'}, status=status.HTTP_200_OK)
 
