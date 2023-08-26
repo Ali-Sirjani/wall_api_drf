@@ -16,6 +16,7 @@ from celery.schedules import crontab
 from datetime import timedelta
 from pathlib import Path
 from environ import Env
+import sys
 
 env = Env()
 
@@ -255,3 +256,6 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(minute='0', hour='1'),
     },
 }
+
+# Setting to detect if the app is running tests
+TESTING = len(sys.argv) > 1 and sys.argv[1] == 'test'
