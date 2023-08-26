@@ -142,14 +142,15 @@ class CreateAdAPI(APIView):
                     if result is not True:
                         return result
 
+                ser.validated_data['author'] = user
+
+                ser.save()
+
                 if is_use_ad_token:
                     ser.validated_data['is_use_ad_token'] = True
                     request.user.token_activated = False
                     request.user.save()
 
-                ser.validated_data['author'] = user
-
-                ser.save()
                 data = {
                     'status': 'Wait for confirmation',
                 }
