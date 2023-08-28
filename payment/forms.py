@@ -3,12 +3,12 @@ from django.contrib import messages
 from django.conf import settings
 from django.utils import timezone
 
-from .models import PackageAdToken
+from .models import PackageAdToken, Order
 
 
 class PackageAdTokenForm(ModelForm):
     class Meta:
-        model = PackageAdToken 
+        model = PackageAdToken
         fields = '__all__'
     
     def clean(self):
@@ -109,8 +109,14 @@ class PackageAdTokenForm(ModelForm):
 
 class OrderForm(ModelForm):
     class Meta:
-        model = PackageAdToken
+        model = Order
         fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Update the queryset for the package field to show only confirmed packages
+        self.fields['package'].queryset = PackageAdToken.active_objs.all()
 
     def clean(self):
         # Retrieve the cleaned data
@@ -157,6 +163,9 @@ class OrderForm(ModelForm):
 
             if has_changed:
                 self.instance.edited_by = user
+
+            if is_new:
+                clean_data['created_by'] = user
 
             return clean_data
 

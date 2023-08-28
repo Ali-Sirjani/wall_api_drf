@@ -16,6 +16,7 @@ from celery.schedules import crontab
 from datetime import timedelta
 from pathlib import Path
 from environ import Env
+import sys
 
 env = Env()
 
@@ -181,6 +182,10 @@ SPECTACULAR_SETTINGS = {
 AUTH_USER_MODEL = 'accounts.CustomUser'
 LOGOUT_REDIRECT_URL = 'home'
 
+MAX_LOGIN = 3
+LOGIN_SUCCESS_CHECK_PERIOD_MINUTE = 20
+BLOCK_TIME_MAX_LOGIN_MINUTE = 60
+
 # Custom Authentication Backends Configuration
 # -------------------------------------------
 # Define the order of authentication backends for user login.
@@ -202,7 +207,7 @@ AXES_COOLOFF_TIME = 0.04   # Time period (in days) for cooling off during lockou
 AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False  # Don't reset cool-off time on each failure during lockout.
 AXES_PASSWORD_FORM_FIELD = 'code'  # Using 'code' as the password-equivalent field for rate limiting.
 AXES_USERNAME_FORM_FIELD = 'phone_number'  # Name of the form field for the username or identifier.
-
+AXES_LOCKOUT_CALLABLE = 'accounts.utils.custom_lockout_response'
 
 # crispy form
 CRISPY_TEMPLATE_PACK = 'bootstrap5'
@@ -214,10 +219,12 @@ MESSAGE_TAGS = {
 
 # config otp
 MAX_OTP_TRY = 2
-MAX_LOGIN = 3
+RESET_TIME_OTP_MINUTE = 4
+LIMIT_TIME_MAX_OTP = 1
 
-# limit create ads
-FREE_ADS_MONTHLY_QUOTA = 3
+# config ads
+FREE_ADS_MONTHLY_QUOTA = 3  # Limit create ads
+MIN_REPORTS_TO_BLOCK_AD = 5  # Minimum reports to block an ad
 
 # price ad token for one
 AD_TOKEN_PRICE = env.int('AD_TOKEN_PRICE')
@@ -243,5 +250,12 @@ CELERY_BEAT_SCHEDULE = {
     'remove_ads_expired': {
         'task': 'ads.tasks.check_expiration_date_every_day',
         'schedule': crontab(minute='0', hour='0'),
-    }
+    },
+    'block_ads': {
+        'task': 'ads.tasks.check_reports_of_ads',
+        'schedule': crontab(minute='0', hour='1'),
+    },
 }
+
+# Setting to detect if the app is running tests
+TESTING = len(sys.argv) > 1 and sys.argv[1] == 'test'

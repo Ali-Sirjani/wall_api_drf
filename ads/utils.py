@@ -1,4 +1,5 @@
 from django.utils import timezone
+from django.conf import settings
 
 from rest_framework import status
 from rest_framework.response import Response
@@ -19,8 +20,10 @@ def phone_number_verification(request):
                 send_again = ser.validated_data.get('send_again')
                 if send_again:
                     if code_varify.send_code():
-                        # send code to phone in request
-                        print('this is code: ', code_varify.code)
+
+                        if not settings.TESTING:
+                            # send code to phone in request
+                            print('this is code: ', code_varify.code)
 
                         return Response({'send again': 'Done'}, status=status.HTTP_200_OK)
 
@@ -46,8 +49,10 @@ def phone_number_verification(request):
 
         if code_varify.send_code():
             code_varify.create_code()
-            # send code to phone in request
-            print('this is code: ', code_varify.code)
+
+            if not settings.TESTING:
+                # send code to phone in request
+                print('this is code: ', code_varify.code)
 
             return Response({'message': 'you must verification ad phone number', 'code': 'send'}, status=status.HTTP_200_OK)
 

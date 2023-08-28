@@ -1,6 +1,8 @@
 from django.contrib.auth import login, authenticate, views as auth_views
 from django.urls import reverse_lazy
-from django.shortcuts import redirect, render, reverse
+from django.utils.decorators import method_decorator
+from django.conf import settings
+from django.shortcuts import redirect, render
 from django.contrib import messages
 from django.utils import timezone
 
@@ -13,8 +15,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import CustomUser, CodeVerify
 from .forms import CustomAuthenticationForm, CodeVerifyForm
 from .serializers import LoginSerializer, CodeVarifySerializer, UserSerializer, UpdateUserSerializer
-from .permission import IsOwner
-from .utils import signal_failed
+from .utils import signal_failed, custom_axes_dispatch_with_source
 
 
 class LoginView(auth_views.LoginView):
@@ -32,17 +33,20 @@ class LoginView(auth_views.LoginView):
                 code_varify, created = CodeVerify.objects.get_or_create(user=user)
 
                 if user.can_login():
-                    if code_varify.send_code():
-                        self.request.session['pk'] = user.pk
+                    if code_varify.can_start_again():
+                        code_varify.reset()
 
-                        if code_varify.code_time_validity():
+                    self.request.session['pk'] = user.pk
+
+                    if code_varify.code_time_validity():
+                        if code_varify.send_code():
                             code_varify.create_code()  # Generates a new verification code.
 
-                        # send code
-                        print('this is code: ', code_varify.code)
-                        return redirect(self.success_url)
+                            if not settings.TESTING:
+                                # send code
+                                print('this is code: ', code_varify.code)
 
-                    form.add_error(None, 'Please after 10 minutes try Again')
+                    return redirect(self.success_url)
 
                 else:
                     form.add_error(None, 'You blocked because of too many login')
@@ -56,6 +60,7 @@ class LoginView(auth_views.LoginView):
         return super().dispatch(request, *args, **kwargs)
 
 
+@custom_axes_dispatch_with_source(request_from='web')
 def check_code_view(request):
     pk = request.session.get('pk')
     if pk:
@@ -65,20 +70,22 @@ def check_code_view(request):
             messages.error(request, 'Something went wrong. Please try again!')
             return redirect('accounts:login')
 
-        referer = request.META.get('HTTP_REFERER')
-        allow_url = request.build_absolute_uri(reverse('accounts:login'))
-
         code_varify, created = CodeVerify.objects.get_or_create(user=user)
 
-        if referer == allow_url or code_varify.expiration_timestamp is not None:
+        if code_varify.can_start_again():
+            code_varify.reset()
+
+        if code_varify.expiration_timestamp is not None:
             form = CodeVerifyForm(request.POST or None)
 
             code = code_varify.code
             send_again = request.GET.get('send_again')
             if send_again == 'True':
                 if code_varify.send_code(request):
-                    # send code
-                    print('this is code: ', code_varify.code)
+
+                    if not settings.TESTING:
+                        # send code
+                        print('this is code: ', code_varify.code)
 
                 return redirect('accounts:check_code')
 
@@ -87,6 +94,8 @@ def check_code_view(request):
 
                 if code == num:
                     if not code_varify.is_expired():
+                        del request.session['pk']
+
                         if user.last_login is None:
                             messages.success(request, 'Welcome to our site.')
                         elif user.last_login_for_month():
@@ -122,6 +131,7 @@ class LogoutView(auth_views.LogoutView):
         return super(LogoutView, self).get(request)
 
 
+@method_decorator(custom_axes_dispatch_with_source(request_from='api'), name='dispatch')
 class LoginAPI(APIView):
     serializer_class = LoginSerializer
 
@@ -136,19 +146,25 @@ class LoginAPI(APIView):
 
                 code_varify, created = CodeVerify.objects.get_or_create(user=user)
                 if user.can_login():
-                    if code_varify.send_code():
-                        if code_varify.code_time_validity():
-                            code_varify.create_code()
-                        print('this is code: ', code_varify.code)
-                        return Response({'user_id': user.pk}, status=status.HTTP_200_OK)
+                    if code_varify.can_start_again():
+                        code_varify.reset()
 
-                    ser._errors.update({'times': 'max otp try'})
+                    if code_varify.code_time_validity():
+                        if code_varify.send_code():
+                            code_varify.create_code()
+
+                            if not settings.TESTING:
+                                # send code
+                                print('this is code: ', code_varify.code)
+
+                    return Response({'user_id': user.pk}, status=status.HTTP_200_OK)
 
                 return Response({'message': 'You limit for too many logout'})
 
         return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@method_decorator(custom_axes_dispatch_with_source(request_from='api'), name='dispatch')
 class CheckCodeAPI(APIView):
     serializer_class = CodeVarifySerializer
 
@@ -164,13 +180,18 @@ class CheckCodeAPI(APIView):
 
             code_varify, created = CodeVerify.objects.get_or_create(user=user)
 
+            if code_varify.can_start_again():
+                code_varify.reset()
+
             if code_varify.expiration_timestamp is not None:
 
                 send_again = ser.validated_data.get('send_again')
                 if send_again:
                     if code_varify.send_code():
-                        # send code
-                        print('this is code: ', code_varify.code)
+
+                        if not settings.TESTING:
+                            # send code
+                            print('this is code: ', code_varify.code)
 
                         return Response({'send again': 'Done'}, status=status.HTTP_200_OK)
 
@@ -212,48 +233,26 @@ class CheckCodeAPI(APIView):
 
 
 class UserInfoAPI(APIView):
-    permission_classes = [IsAuthenticated, IsOwner]
+    permission_classes = (IsAuthenticated, )
     serializer_class = UserSerializer
 
     def get(self, request):
-        pk = request.query_params.get('pk')
-
-        if pk:
-            try:
-                user = CustomUser.objects.get(pk=pk)
-            except CustomUser.DoesNotExist:
-                return Response({'message': f'There is no user with pk {pk}'}, status=status.HTTP_400_BAD_REQUEST)
-
-            self.check_object_permissions(request, user)
-
-            ser = UserSerializer(user)
-            return Response(ser.data, status=status.HTTP_200_OK)
-
-        return Response({'message': 'send pk'}, status=status.HTTP_400_BAD_REQUEST)
+        ser = UserSerializer(request.user)
+        return Response(ser.data, status=status.HTTP_200_OK)
 
 
 class EditUserInfoAPI(APIView):
-    permission_classes = [IsAuthenticated, IsOwner]
+    permission_classes = [IsAuthenticated]
     serializer_class = UpdateUserSerializer
 
-    def post(self, request):
-        pk = request.query_params.get('pk')
+    def put(self, request):
+        ser = UpdateUserSerializer(request.user, data=request.data, partial=True)
 
-        if pk:
-            try:
-                user = CustomUser.objects.get(pk=pk)
-            except CustomUser.DoesNotExist:
-                return Response({'message': f'There is no user with pk {pk}'}, status=status.HTTP_400_BAD_REQUEST)
+        if ser.is_valid():
+            if not len(ser.validated_data):
+                return Response({'message': 'You must enter at least one field'},
+                                status=status.HTTP_400_BAD_REQUEST)
+            ser.save()
+            return Response({'status': 'Done'}, status=status.HTTP_200_OK)
 
-            self.check_object_permissions(request, user)
-
-            ser = UpdateUserSerializer(user, data=request.data, partial=True)
-
-            if ser.is_valid():
-                if not len(ser.validated_data):
-                    return Response({'message': 'You must enter at least one field'},
-                                    status=status.HTTP_400_BAD_REQUEST)
-                ser.save()
-                return Response({'status': 'Done'}, status=status.HTTP_200_OK)
-
-            return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)

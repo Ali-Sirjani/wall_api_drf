@@ -10,7 +10,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        exclude = ('id', 'password', 'is_superuser', 'is_staff', 'groups', 'user_permissions')
+        fields = ('username', 'last_login', 'first_name', 'last_name', 'is_active', 'date_joined',
+                  'phone_number', 'email', 'ad_token', 'block_time',)
 
     def get_username(self, obj):
         if obj.phone_number == obj.username:

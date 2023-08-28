@@ -18,6 +18,7 @@ class CustomUser(AbstractUser):
     phone_number = PhoneNumberField(unique=True, region='IR', null=True, verbose_name=_('phone number'))
     email = models.EmailField(blank=True, null=True, unique=True, verbose_name=_('email'))
     ad_token = models.PositiveIntegerField(blank=True, default=0, verbose_name=_('ad token'))
+    token_activated = models.BooleanField(blank=True, default=False, verbose_name=_('token used'))
 
     count_login = models.PositiveIntegerField(blank=True, default=0, verbose_name=_('count login'))
     block_time = models.DateTimeField(null=True, blank=True, verbose_name=_('block time'))
@@ -51,21 +52,23 @@ class CustomUser(AbstractUser):
         """
         # Check if there is a recorded last login time for the user
         if self.last_login:
-            reset_time = timezone.timedelta(minutes=10)
+            setting_period_check_login = settings.LOGIN_SUCCESS_CHECK_PERIOD_MINUTE
+            reset_time_login = timezone.timedelta(minutes=setting_period_check_login)
             time_since_last_login = timezone.now() - self.last_login
 
             if login_success:
                 # Increment the login attempt counter if a successful login
                 self.count_login += 1
 
-            elif reset_time < time_since_last_login:
+            elif reset_time_login < time_since_last_login:
                 # Reset counters if enough time has passed since the last login
                 self.count_login = 0
                 self.block_time = None
 
             if settings.MAX_LOGIN <= self.count_login:
+                setting_block_time = settings.BLOCK_TIME_MAX_LOGIN_MINUTE
                 # Apply rate limiting if the maximum allowed login attempts is reached
-                self.block_time = timezone.now() + timezone.timedelta(minutes=5)
+                self.block_time = timezone.now() + timezone.timedelta(minutes=setting_block_time)
 
             self.save()
 
@@ -101,8 +104,12 @@ class CustomUser(AbstractUser):
         :param can_use: 'True' if the user intends to use the ad token, 'False' otherwise.
         :return: True if a token was used, False otherwise.
         """
+        if self.token_activated:
+            return True
+
         if can_use == 'True' and self.ad_token:
             self.ad_token -= 1
+            self.token_activated = True
             self.save()
             return True
 
@@ -114,7 +121,7 @@ class CodeVerify(models.Model):
     code = models.PositiveIntegerField(default=0, verbose_name=_('code'))
     expiration_timestamp = models.DateTimeField(null=True, blank=True, verbose_name=_('expiration timestamp'))
 
-    count_otp = models.PositiveIntegerField(blank=True, default=0, verbose_name=_('count otp'))
+    count_otp = models.PositiveIntegerField(blank=True, default=1, verbose_name=_('count otp'))
     limit_time = models.DateTimeField(null=True, blank=True, verbose_name=_('limit time'))
     # is_limit = models.BooleanField(blank=True, default=False, verbose_name=_('is limit'))
 
@@ -171,7 +178,8 @@ class CodeVerify(models.Model):
 
         if self.count_otp <= settings.MAX_OTP_TRY:
             if settings.MAX_OTP_TRY - self.count_otp == 0:
-                self.limit_time = timezone.now() + timezone.timedelta(minutes=1)
+                setting_limit_time = settings.LIMIT_TIME_MAX_OTP
+                self.limit_time = timezone.now() + timezone.timedelta(minutes=setting_limit_time)
 
             self.count_otp += 1
             self.save()
@@ -182,7 +190,7 @@ class CodeVerify(models.Model):
                 messages.info(request, 'Please after 10 minutes try Again')
             return False
 
-        self.count_otp = 0
+        self.count_otp = 1
         self.save()
         return True
 
@@ -198,6 +206,16 @@ class CodeVerify(models.Model):
         """
         self.code = 0
         self.expiration_timestamp = None
-        self.count_otp = 0
+        self.count_otp = 1
         self.limit_time = None
         self.save()
+
+    def can_start_again(self):
+        if self.expiration_timestamp is not None:
+            setting_reset_time_otp = settings.RESET_TIME_OTP_MINUTE
+            time_reset = self.expiration_timestamp + timezone.timedelta(minutes=setting_reset_time_otp)
+
+            result = time_reset < timezone.now()
+            return result
+
+        return False

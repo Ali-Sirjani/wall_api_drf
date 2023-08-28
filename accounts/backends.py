@@ -41,7 +41,6 @@ class UsernameOrPhoneModelBackend(ModelBackend):
         try:
             user = CustomUser.objects.get(**user_query_username)
             if user.check_password(password) and user.is_staff:
-                print('this is in custom backend so it is ok')
                 return user
         except CustomUser.DoesNotExist:
             return None
@@ -51,5 +50,3 @@ class UsernameOrPhoneModelBackend(ModelBackend):
             return CustomUser.objects.get(pk=user_id)
         except CustomUser.DoesNotExist:
             return None
-
-
