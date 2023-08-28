@@ -206,7 +206,7 @@ class CodeVerify(models.Model):
         """
         self.code = 0
         self.expiration_timestamp = None
-        self.count_otp = 0
+        self.count_otp = 1
         self.limit_time = None
         self.save()
 
