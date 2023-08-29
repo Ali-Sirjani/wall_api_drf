@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.contrib import messages
 
 from .models import Category, Ad, AdReport
+from .forms import AdForm
 
 
 @admin.register(Category)
@@ -19,16 +20,16 @@ class AdReportTabu(admin.TabularInline):
 
 @admin.register(Ad)
 class AdsAdmin(admin.ModelAdmin):
-    readonly_fields = ('author', 'datetime_modified', 'expiration_date', 'datetime_deleted')
     list_display = ('title', 'price', 'active', 'confirmation', 'datetime_modified', 'expiration_date', 'is_delete')
     ordering = ('-datetime_modified', )
     list_filter = ('active', 'is_delete', 'is_block', 'is_use_ad_token')
     actions = ('soft_delete_selected', )
     inlines = (AdReportTabu, )
+    form = AdForm
 
     def get_fields(self, request, obj=None):
         fields = ['author', 'title', 'text', 'price', 'image', 'status_product', 'category',
-                  'location', 'phone', 'active', 'is_use_ad_token', 'slug', 'confirmation',
+                  'location', 'phone', 'active', 'is_use_ad_token', 'count_reports', 'slug', 'confirmation',
                   'datetime_modified', 'expiration_date']
 
         if obj:
@@ -40,6 +41,22 @@ class AdsAdmin(admin.ModelAdmin):
                 fields.extend(['is_delete', 'delete_with', 'datetime_deleted'])
 
         return fields
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = ['datetime_modified', 'expiration_date', 'datetime_deleted']
+
+        if obj:
+            readonly_fields.append('author')
+
+        return readonly_fields
+
+    def save_model(self, request, obj, form, change):
+        if change:
+            if not obj.is_block and 'is_block' in form.changed_data:
+                obj.reports.filter(investigated=False).update(investigated=True)
+                obj.count_reports = 0
+
+        return super().save_model(request, obj, form, change)
 
     def delete_model(self, request, obj):
         if not obj.is_delete:
