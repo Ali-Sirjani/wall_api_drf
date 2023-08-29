@@ -11,7 +11,6 @@ from .models import Category, Ad
 def create_slug_category(sender, instance, *args, **kwargs):
     if not instance.slug or Category.objects.filter(slug=instance.slug).exclude(pk=instance.pk).exists():
         instance.slug = create_unique_slug(instance, instance.name)
-        print('this is slug: ', instance.slug)
 
 
 @receiver(pre_save, sender=Ad)

@@ -10,10 +10,40 @@ services:
       - 8000:8000
     depends_on:
       - db
+      - redis
     environment:
       - "DJANGO_SECRET_KEY=${DOCKER_COMPOSE_DJANGO_SECRET_KEY}"
       - "DJAGNO_DEBUG=${DOCKER_COMPOSE_DJANGO_DEBUG}"
+      - "AD_TOKEN_PRICE=${DOCKER_AD_TOKEN_PRICE}"
 
+  celery-worker:
+    build: .
+    command: celery -A config worker -l info
+    volumes:
+      - .:/code
+    depends_on:
+      - redis
+    environment:
+      - "DJANGO_SECRET_KEY=${DOCKER_COMPOSE_DJANGO_SECRET_KEY}"
+      - "DJAGNO_DEBUG=${DOCKER_COMPOSE_DJANGO_DEBUG}"
+      - "AD_TOKEN_PRICE=${DOCKER_AD_TOKEN_PRICE}"
+    restart: unless-stopped
+
+  celery-beat:
+    build: .
+    command: celery -A config beat -l info
+    volumes:
+      - .:/code
+    depends_on:
+      - redis
+    environment:
+      - "DJANGO_SECRET_KEY=${DOCKER_COMPOSE_DJANGO_SECRET_KEY}"
+      - "DJAGNO_DEBUG=${DOCKER_COMPOSE_DJANGO_DEBUG}"
+      - "AD_TOKEN_PRICE=${DOCKER_AD_TOKEN_PRICE}"
+    restart: unless-stopped
+
+  redis:
+    image: "redis:latest"
 
   db:
     image: postgres:latest
